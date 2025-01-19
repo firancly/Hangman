@@ -1,10 +1,9 @@
--- ModuleScript: Hangman
 local Hangman = {}
 
 -- Game states
 local gameStates = {
 	INTERMISSION = "Intermission",
-	GAME_START = "GameStart",
+	ROUND_START = "GameStart",
 	PLAYER_TURN = "PlayerTurn",
 	ROUND_END = "RoundEnd",
 	GAME_OVER = "GameOver",
@@ -16,22 +15,15 @@ local CONFIG = {
 
 -- Constructor
 function Hangman.new(players, word)
-	local self = {
-		state = gameStates.INTERMISSION,
-		players = players,
-		currentPlayerIndex = 1,
-		word = word,
-		guessedLetters = {},
-		remainingAttempts = 6,
-		round = 1,
-	}
+	local self = {}
 
-	self.start = Hangman.start
-	self.startIntermission = Hangman.startIntermission
-	self.startGame = Hangman.startGame
-	self.guessLetter = Hangman.guessLetter
-	self.checkRoundOver = Hangman.checkRoundOver
-	self.nextPlayer = Hangman.nextPlayer
+	self.state = gameStates.INTERMISSION
+	self.players = players
+	self.currentPlayerIndex = 1
+	self.word = word
+	self.guessedLetters = {}
+	self.remainingAttempts = 6
+	self.round = 1
 
 	return self
 end
@@ -61,24 +53,63 @@ local function teleportPlayers(players)
 	end
 end
 
--- Method to start intermission (theme voting)
-function Hangman.startIntermission(self)
-	print("Intermission: Players, vote for a theme!")
-	task.wait(CONFIG.waitTime) -- Simulate 20s intermission
-	print("Intermission over!")
-	self.state = gameStates.GAME_START
+-- Define methods that take the instance as first parameter
+function Hangman.update(self)
+	local stateHandlers = {
+		[gameStates.INTERMISSION] = Hangman.Intermission,
+		[gameStates.ROUND_START] = Hangman.startRound,
+		[gameStates.PLAYER_TURN] = Hangman.handlePlayerTurn,
+		[gameStates.ROUND_END] = Hangman.endRound,
+	}
+
+	while self.state ~= gameStates.ROUND_END do
+		print(self.state)
+		local handler = stateHandlers[self.state]
+		if handler then
+			handler(self)
+		else
+			warn("Invalid game state:", self.state)
+		end
+		task.wait(1) -- Configurable delay
+	end
 end
 
-function Hangman:startGame()
+function Hangman.Intermission(self)
+	print("Intermission: Players, vote for a theme!")
+	task.wait(CONFIG.waitTime)
+	print("Intermission over!")
+	self.state = gameStates.ROUND_START
+end
+
+function Hangman.startRound(self)
 	print("Start Game")
 	teleportPlayers(self.players)
 	self.state = gameStates.PLAYER_TURN
 end
 
--- Method to handle player's guess
-function Hangman:guessLetter(player, letter)
+function Hangman.handlePlayerTurn(self)
+	local currentPlayer = self.players[self.currentPlayerIndex]
+
+	-- Receive a fireevent from the client to get the input letter from the player
+	-- Hangman.guessLetter(self, currentPlayer, letter)
+	local ButtonPressEvent = game.ReplicatedStorage.ButtonPressEvent
+	local letter = ButtonPressEvent.OnServerEvent:Connect(function(player, letter)
+		print(player, letter)
+		Hangman.guessLetter(self, player, letter)
+	end)
+
+	local isRoundOver, message = Hangman.checkRoundOver(self)
+	if isRoundOver then
+		print(message)
+		self.state = gameStates.ROUND_END
+	else
+		Hangman.nextPlayer(self)
+	end
+end
+
+function Hangman.guessLetter(self, player, letter)
 	if self.state ~= gameStates.PLAYER_TURN or player ~= self.players[self.currentPlayerIndex] then
-		return false -- Only allow guesses during the player's turn
+		return false
 	end
 
 	table.insert(self.guessedLetters, letter)
@@ -89,8 +120,7 @@ function Hangman:guessLetter(player, letter)
 	return true
 end
 
--- Method to check if the round is over
-function Hangman:checkRoundOver()
+function Hangman.checkRoundOver(self)
 	local allLettersGuessed = true
 	for letter in string.gmatch(self.word, "%a") do
 		if not table.find(self.guessedLetters, letter) then
@@ -112,45 +142,10 @@ function Hangman:checkRoundOver()
 	return false
 end
 
--- Method to move to the next player
-function Hangman:nextPlayer()
+function Hangman.nextPlayer(self)
 	self.currentPlayerIndex = self.currentPlayerIndex + 1
 	if self.currentPlayerIndex > #self.players then
 		self.currentPlayerIndex = 1
-	end
-end
-
--- Method to start the game loop
-function Hangman:start()
-	while self.state ~= gameStates.GAME_OVER do
-		if self.state == gameStates.INTERMISSION then
-			self:startIntermission()
-		elseif self.state == gameStates.GAME_START then
-			self:startGame()
-		elseif self.state == gameStates.PLAYER_TURN then
-			local currentPlayer = self.players[self.currentPlayerIndex]
-			print(currentPlayer.name .. ", guess a letter!")
-
-			-- Simulate player input (replace this with actual input logic)
-
-			local letter = "a" -- Example: Player guesses 'a'
-			self:guessLetter(currentPlayer, letter)
-
-			local isRoundOver, message = self:checkRoundOver()
-			if isRoundOver then
-				print(message)
-				-- randomize the player order for the next round
-				self.state = gameStates.ROUND_END
-			else
-				self:nextPlayer()
-			end
-		elseif self.state == gameStates.ROUND_END then
-			print("Starting a new round...")
-			self.round = self.round + 1
-			self.state = gameStates.INTERMISSION
-		end
-
-		task.wait(1) -- Simulate a delay between turns
 	end
 end
 

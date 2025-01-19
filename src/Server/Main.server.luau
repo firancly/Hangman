@@ -9,6 +9,16 @@ if #players == 0 then
 end
 print("Players:", players)
 
+-- Create remote events
+local ButtonPressEvent = Instance.new("RemoteEvent")
+ButtonPressEvent.Name = "ButtonPressEvent"
+ButtonPressEvent.Parent = game.ReplicatedStorage
+
+local ThemeVoteEvent = Instance.new("RemoteEvent")
+ThemeVoteEvent.Name = "ThemeVoteEvent"
+ThemeVoteEvent.Parent = game.ReplicatedStorage
+
+-- Define a random theme and word
 local themes = script.Parent.Themes:GetChildren()
 local randomTheme: { string } = require(themes[math.random(1, #themes)])
 local word: string = randomTheme[math.random(1, #randomTheme)]
@@ -16,8 +26,5 @@ local wordLength = string.len(word) -- Use later to adjust the number of underli
 
 -- Create a new multiplayer Hangman game
 local game = Hangman.new(players, word)
-print("Game object created:", game)
-print("Game start method exists:", game.start)
 
--- Start the game loop
-game:start()
+Hangman.update(game)

@@ -4,9 +4,14 @@ local Hangman = {}
 -- Game states
 local gameStates = {
 	INTERMISSION = "Intermission",
+	GAME_START = "GameStart",
 	PLAYER_TURN = "PlayerTurn",
 	ROUND_END = "RoundEnd",
 	GAME_OVER = "GameOver",
+}
+
+local CONFIG = {
+	waitTime = 5,
 }
 
 -- Constructor
@@ -17,26 +22,56 @@ function Hangman.new(players, word)
 		currentPlayerIndex = 1,
 		word = word,
 		guessedLetters = {},
-		remainingAttempts = 6, -- Number of incorrect guesses allowed
+		remainingAttempts = 6,
 		round = 1,
 	}
 
 	self.start = Hangman.start
 	self.startIntermission = Hangman.startIntermission
+	self.startGame = Hangman.startGame
 	self.guessLetter = Hangman.guessLetter
 	self.checkRoundOver = Hangman.checkRoundOver
 	self.nextPlayer = Hangman.nextPlayer
 
-	-- Debug: Verify that the start method is attached
-	print("Is start method attached?", self.start ~= nil)
-
 	return self
 end
 
+local function teleportPlayers(players)
+	local chairs = workspace.Chairs:GetChildren()
+	print(players)
+
+	for i, player in players do
+		local chair = chairs[i]
+		if chair and player.Character then
+			local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+			local humanoid = player.Character:FindFirstChild("Humanoid")
+			if humanoidRootPart then
+				humanoid.WalkSpeed = 0
+				humanoid.JumpHeight = 0
+				humanoidRootPart.CFrame = chair:GetPivot()
+			end
+		else
+			if not chair then
+				warn("Not enough chairs for " .. player.Name)
+			end
+			if not player.Character then
+				warn(player.Name .. " does not have a character.")
+			end
+		end
+	end
+end
+
 -- Method to start intermission (theme voting)
-function Hangman:startIntermission()
+function Hangman.startIntermission(self)
 	print("Intermission: Players, vote for a theme!")
-	task.wait(20) -- Simulate 20s intermission
+	task.wait(CONFIG.waitTime) -- Simulate 20s intermission
+	print("Intermission over!")
+	self.state = gameStates.GAME_START
+end
+
+function Hangman:startGame()
+	print("Start Game")
+	teleportPlayers(self.players)
 	self.state = gameStates.PLAYER_TURN
 end
 
@@ -90,6 +125,8 @@ function Hangman:start()
 	while self.state ~= gameStates.GAME_OVER do
 		if self.state == gameStates.INTERMISSION then
 			self:startIntermission()
+		elseif self.state == gameStates.GAME_START then
+			self:startGame()
 		elseif self.state == gameStates.PLAYER_TURN then
 			local currentPlayer = self.players[self.currentPlayerIndex]
 			print(currentPlayer.name .. ", guess a letter!")
@@ -102,6 +139,7 @@ function Hangman:start()
 			local isRoundOver, message = self:checkRoundOver()
 			if isRoundOver then
 				print(message)
+				-- randomize the player order for the next round
 				self.state = gameStates.ROUND_END
 			else
 				self:nextPlayer()

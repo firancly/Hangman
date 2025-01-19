@@ -7,7 +7,7 @@ if #players == 0 then
 	game.Players.PlayerAdded:Wait()
 	players = game.Players:GetChildren()
 end
-print(players)
+print("Players:", players)
 
 local themes = script.Parent.Themes:GetChildren()
 local randomTheme: { string } = require(themes[math.random(1, #themes)])
@@ -16,6 +16,8 @@ local wordLength = string.len(word) -- Use later to adjust the number of underli
 
 -- Create a new multiplayer Hangman game
 local game = Hangman.new(players, word)
+print("Game object created:", game)
+print("Game start method exists:", game.start)
 
 -- Start the game loop
 game:start()

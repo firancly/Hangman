@@ -13,7 +13,6 @@ print("Players:", players)
 local ButtonPressEvent = Instance.new("RemoteEvent")
 ButtonPressEvent.Name = "ButtonPressEvent"
 ButtonPressEvent.Parent = game.ReplicatedStorage
-print("ButtonPressEvent:", ButtonPressEvent)
 
 local ThemeVoteEvent = Instance.new("RemoteEvent")
 ThemeVoteEvent.Name = "ThemeVoteEvent"

@@ -1,5 +1,13 @@
 local Hangman = {}
 
+-- Configuration
+local CONFIG = {
+	MAX_ATTEMPTS = 6,
+	INTERMISSION_TIME = 5,
+	MIN_PLAYERS = 2,
+	MAX_PLAYERS = 8,
+}
+
 -- Game states
 local gameStates = {
 	INTERMISSION = "Intermission",
@@ -9,21 +17,33 @@ local gameStates = {
 	GAME_OVER = "GameOver",
 }
 
-local CONFIG = {
-	waitTime = 5,
-}
-
 -- Constructor
 function Hangman.new(players, word)
-	local self = {}
+	local self = {
+		state = gameStates.INTERMISSION,
+		players = players,
+		currentPlayerIndex = 1,
+		word = string.upper(word),
+		guessedLetters = {},
+		remainingAttempts = CONFIG.MAX_ATTEMPTS,
+		round = 1,
+	}
 
-	self.state = gameStates.INTERMISSION
-	self.players = players
-	self.currentPlayerIndex = 1
-	self.word = word
-	self.guessedLetters = {}
-	self.remainingAttempts = 6
-	self.round = 1
+	self.Events = {
+		ButtonPressEvent = game.ReplicatedStorage:WaitForChild("ButtonPressEvent"),
+		WordLengthEvent = game.ReplicatedStorage:WaitForChild("WordLengthEvent"),
+		CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
+	}
+
+	self.Events.ButtonPressEvent.OnServerEvent:Connect(function(player, letter)
+		-- Only process input if it's the player's turn
+		if self.state == gameStates.PLAYER_TURN and player == self.players[self.currentPlayerIndex] then
+			print(player.Name .. " pressed: " .. letter)
+			Hangman.guessLetter(self, player, letter)
+		else
+			warn("It's not your turn, " .. player.Name .. "!")
+		end
+	end)
 
 	return self
 end
@@ -63,7 +83,7 @@ function Hangman.update(self)
 	}
 
 	while self.state ~= gameStates.ROUND_END do
-		print(self.state)
+		warn(self.state)
 		local handler = stateHandlers[self.state]
 		if handler then
 			handler(self)
@@ -76,13 +96,15 @@ end
 
 function Hangman.Intermission(self)
 	print("Intermission: Players, vote for a theme!")
-	task.wait(CONFIG.waitTime)
+	task.wait(CONFIG.INTERMISSION_TIME)
 	print("Intermission over!")
 	self.state = gameStates.ROUND_START
 end
 
 function Hangman.startRound(self)
 	print("Start Game")
+	warn(self.word)
+	self.Events.WordLengthEvent:FireAllClients(self.word:len())
 	teleportPlayers(self.players)
 	self.state = gameStates.PLAYER_TURN
 end
@@ -90,19 +112,13 @@ end
 function Hangman.handlePlayerTurn(self)
 	local currentPlayer = self.players[self.currentPlayerIndex]
 
-	-- Receive a fireevent from the client to get the input letter from the player
-	-- Hangman.guessLetter(self, currentPlayer, letter)
-	local ButtonPressEvent = game.ReplicatedStorage.ButtonPressEvent
-	local letter = ButtonPressEvent.OnServerEvent:Connect(function(player, letter)
-		print(player, letter)
-		Hangman.guessLetter(self, player, letter)
-	end)
-
+	task.wait(20) -- Time given for players to choose a letter
 	local isRoundOver, message = Hangman.checkRoundOver(self)
 	if isRoundOver then
 		print(message)
 		self.state = gameStates.ROUND_END
 	else
+		warn("Next Player!")
 		Hangman.nextPlayer(self)
 	end
 end
@@ -112,11 +128,21 @@ function Hangman.guessLetter(self, player, letter)
 		return false
 	end
 
-	table.insert(self.guessedLetters, letter)
-	if not string.find(self.word, letter) then
+	if table.find(self.guessedLetters, letter) then
+		warn("Letter already guessed:", letter)
+		return false
+	else
+		table.insert(self.guessedLetters, letter)
+	end
+
+	local index = string.find(self.word, letter)
+	if index then
+		self.Events.CorrectGuessEvent:FireClient(player, index, letter)
+	else
 		self.remainingAttempts = self.remainingAttempts - 1
 	end
 
+	print("Guessed letters:", table.concat(self.guessedLetters, ", "))
 	return true
 end
 

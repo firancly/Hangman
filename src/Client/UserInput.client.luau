@@ -2,6 +2,8 @@ local player = game.Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 
 local ButtonPressEvent = game.ReplicatedStorage:WaitForChild("ButtonPressEvent")
+local WordLengthEvent = game.ReplicatedStorage:WaitForChild("WordLengthEvent")
+local CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent")
 
 local upperRow = PlayerGui:WaitForChild("ScreenGui").Keyboard.Row_1
 local middleRow = PlayerGui:WaitForChild("ScreenGui").Keyboard.Row_2
@@ -21,6 +23,25 @@ local function connectButtons(parent)
 		end
 	end
 end
+
+WordLengthEvent.OnClientEvent:Connect(function(wordLength)
+	for i = 1, wordLength do
+		local underline = PlayerGui.ScreenGui.Word.UnderlineTemplate:Clone()
+		underline.Parent = PlayerGui.ScreenGui.Word
+		underline.Name = "Underline_" .. i
+		underline.Visible = true
+	end
+end)
+
+CorrectGuessEvent.OnClientEvent:Connect(function(index, letter)
+	warn(index, letter)
+	local underline = PlayerGui.ScreenGui.Word:FindFirstChild("Underline_" .. index)
+	print(underline)
+	if underline then
+		local letterUi = underline.TextLabel
+		letterUi.Text = letter
+	end
+end)
 
 connectButtons(upperRow)
 connectButtons(middleRow)

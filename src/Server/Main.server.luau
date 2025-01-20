@@ -13,16 +13,24 @@ print("Players:", players)
 local ButtonPressEvent = Instance.new("RemoteEvent")
 ButtonPressEvent.Name = "ButtonPressEvent"
 ButtonPressEvent.Parent = game.ReplicatedStorage
+print("ButtonPressEvent:", ButtonPressEvent)
 
 local ThemeVoteEvent = Instance.new("RemoteEvent")
 ThemeVoteEvent.Name = "ThemeVoteEvent"
 ThemeVoteEvent.Parent = game.ReplicatedStorage
 
+local WordLengthEvent = Instance.new("RemoteEvent")
+WordLengthEvent.Name = "WordLengthEvent"
+WordLengthEvent.Parent = game.ReplicatedStorage
+
+local CorrectGuessEvent = Instance.new("RemoteEvent")
+CorrectGuessEvent.Name = "CorrectGuessEvent"
+CorrectGuessEvent.Parent = game.ReplicatedStorage
+
 -- Define a random theme and word
 local themes = script.Parent.Themes:GetChildren()
 local randomTheme: { string } = require(themes[math.random(1, #themes)])
 local word: string = randomTheme[math.random(1, #randomTheme)]
-local wordLength = string.len(word) -- Use later to adjust the number of underlines
 
 -- Create a new multiplayer Hangman game
 local game = Hangman.new(players, word)

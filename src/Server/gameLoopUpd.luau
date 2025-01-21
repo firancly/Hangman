@@ -3,10 +3,10 @@ Hangman.__index = Hangman
 
 -- Configuration
 local CONFIG = {
-	MAX_ATTEMPTS = 6,
+	MAX_ATTEMPTS = 2,
 	INTERMISSION_TIME = 5,
 	PLAYER_TURN_TIME = 20,
-	MIN_PLAYERS = 2,
+	MIN_PLAYERS = 1,
 	MAX_PLAYERS = 8,
 }
 
@@ -74,17 +74,26 @@ local function findAllIndexes(word, letter)
 	return indexes
 end
 
+local function RandomWord()
+	local themes = script.Parent.Themes:GetChildren()
+	local randomTheme: { string } = require(themes[math.random(1, #themes)])
+	local word = randomTheme[math.random(1, #randomTheme)]
+
+	return string.upper(word)
+end
+
 -- Constructor
-function Hangman.new(players, word)
+function Hangman.new(players)
 	local self = {
 		state = gameStates.INTERMISSION,
 		players = players,
 		currentPlayerIndex = 1,
-		word = string.upper(word),
+		word = RandomWord(),
 		guessedLetters = {},
 		remainingAttempts = CONFIG.MAX_ATTEMPTS,
 		hasGuessed = false,
 		round = 1,
+		lastGuessTime = 0,
 	}
 
 	self.Events = {
@@ -93,16 +102,44 @@ function Hangman.new(players, word)
 		CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
 	}
 
-	setmetatable(self, Hangman)
+	game.Players.PlayerAdded:Connect(function(player)
+		table.insert(self.players, player)
+		print(player.Name .. " joined! Players: " .. #self.players)
+	end)
+
+	game.Players.PlayerRemoving:Connect(function(player)
+		for i, activePlayer in self.players do
+			if activePlayer == player then
+				table.remove(self.players, i)
+				print(player.Name .. " left! Players: " .. #self.players)
+				break
+			end
+		end
+	end)
 
 	-- Set up button press event handler
 	self.Events.ButtonPressEvent.OnServerEvent:Connect(function(player, action, letter)
 		if action == "Button Input" then
+			local currentTime = os.clock()
+
+			if self.hasGuessed then
+				warn("You have already guessed!")
+				return
+			end
+
+			if currentTime - self.lastGuessTime < 0.5 then -- 500ms debounce
+				return
+			end
+
+			self.lastGuessTime = currentTime
+
 			if self.state == gameStates.PLAYER_TURN and player == self.players[self.currentPlayerIndex] then
 				if self.hasGuessed then
 					warn("You have already guessed!")
 					return
 				end
+
+				self.hasGuessed = true
 
 				print(player.Name .. " pressed: " .. letter)
 				local success = self:guessLetter(player, letter)
@@ -111,7 +148,7 @@ function Hangman.new(players, word)
 				else
 					warn("Incorrect guess!")
 				end
-				self.hasGuessed = true
+
 				self:nextPlayer()
 			else
 				warn("It's not your turn, " .. player.Name .. "!")
@@ -119,6 +156,7 @@ function Hangman.new(players, word)
 		end
 	end)
 
+	setmetatable(self, Hangman)
 	return self
 end
 
@@ -130,6 +168,12 @@ function Hangman:update()
 		[gameStates.ROUND_END] = self.endRound,
 	}
 
+	if #self.players < CONFIG.MIN_PLAYERS then
+		print("Not enough players to start. Returning to intermission.")
+		self.state = gameStates.INTERMISSION
+		return
+	end
+
 	local handler = stateHandlers[self.state]
 	if handler then
 		game.TestService:Error(self.state)
@@ -139,29 +183,53 @@ function Hangman:update()
 	end
 end
 
+--[[
+	Handles the intermission state, where players vote for a theme.
+	Once the intermission time is up, the game transitions to the ROUND_START state.
+]]
 function Hangman:handleIntermission()
+	while #self.players < CONFIG.MIN_PLAYERS do
+		print("Waiting for more players... (" .. #self.players .. "/" .. CONFIG.MIN_PLAYERS .. ")")
+		task.wait(1) -- Check player count every second
+	end
+
 	print("Intermission: Players, vote for a theme!")
+
+	self.hasGuessed = false
 	task.wait(CONFIG.INTERMISSION_TIME)
+
 	print("Intermission over!")
 	self.state = gameStates.ROUND_START
 end
 
+--[[
+	Handles the ROUND_START state, where the game transitions to the PLAYER_TURN state.
+	Players are teleported to their chairs and the word length is displayed.
+]]
 function Hangman:startRound()
 	warn(self.word)
 	self.Events.WordLengthEvent:FireAllClients(self.word:len())
+
 	teleportPlayers(self.players, self.state)
+
 	self.state = gameStates.PLAYER_TURN
 	self.remainingAttempts = CONFIG.MAX_ATTEMPTS
 	self.guessedLetters = {}
 	self.hasGuessed = false
 end
 
+--[[
+	Handles the PLAYER_TURN state, where the current player has a limited time to guess a letter.
+	If the player does not guess within the time limit, the game transitions to the next player.
+]]
 function Hangman:handlePlayerTurn()
 	local currentPlayer = self.players[self.currentPlayerIndex]
 	if not currentPlayer then
 		warn("No current player!")
 		return
 	end
+
+	-- Check if
 
 	local startTime = os.time()
 	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
@@ -179,39 +247,46 @@ function Hangman:handlePlayerTurn()
 end
 
 function Hangman:guessLetter(player, letter)
-	if self.state ~= gameStates.PLAYER_TURN or player ~= self.players[self.currentPlayerIndex] then
-		return false
-	end
-
-	if table.find(self.guessedLetters, letter) then
-		warn("Letter already guessed:", letter)
-		return false
-	end
-
-	table.insert(self.guessedLetters, letter)
-	self.Events.ButtonPressEvent:FireAllClients("Button Disable", letter)
-
-	local indexes = findAllIndexes(self.word, letter)
-	if #indexes > 0 then
-		for _, index in indexes do
-			self.Events.CorrectGuessEvent:FireAllClients(player, index, letter)
+	if self.state == gameStates.PLAYER_TURN or player == self.players[self.currentPlayerIndex] then
+		if not self.guessedLetters then
+			warn("guessedLetters is nil! Reinitializing...")
+			self.guessedLetters = {}
 		end
 
-		-- Check if the round is over immediately after a correct guess
-		if self:checkWinCondition() then
-			self.state = gameStates.ROUND_END
-			print("Round over! " .. player.Name .. " wins!")
-			return true
-		end
-		return true
-	else
-		self.remainingAttempts = self.remainingAttempts - 1
-		if self.remainingAttempts <= 0 then
-			self.state = gameStates.ROUND_END
-			print("Round over! " .. player.Name .. " loses!")
+		warn("Current guessedLetters table:", table.concat(self.guessedLetters, ", "))
+
+		if table.find(self.guessedLetters, letter) then
+			warn("Letter already guessed:", letter)
 			return false
 		end
-		return false
+
+		warn("Before insert:", #self.guessedLetters)
+		table.insert(self.guessedLetters, letter)
+		warn("After insert:", #self.guessedLetters)
+		self.Events.ButtonPressEvent:FireAllClients("Button Disable", letter)
+
+		local indexes = findAllIndexes(self.word, letter)
+		if #indexes > 0 then
+			for _, index in indexes do
+				self.Events.CorrectGuessEvent:FireAllClients(player, index, letter)
+			end
+
+			-- Check if the round is over immediately after a correct guess
+			if self:checkWinCondition() then
+				self.state = gameStates.ROUND_END
+				print("Round over! " .. player.Name .. " wins!")
+				return true
+			end
+			return true
+		else
+			self.remainingAttempts = self.remainingAttempts - 1
+			if self.remainingAttempts <= 0 then
+				self.state = gameStates.ROUND_END
+				print("Round over! " .. player.Name .. " loses!")
+				return false
+			end
+			return false
+		end
 	end
 end
 
@@ -258,24 +333,12 @@ function Hangman:nextPlayer()
 end
 
 function Hangman:endRound()
-	-- for _, player in self.players do
-	-- 	if player.Character then
-	-- 		local humanoid = player.Character:FindFirstChild("Humanoid")
-	-- 		if humanoid then
-	-- 			humanoid.WalkSpeed = 16 -- Reset to default walk speed
-	-- 			humanoid.JumpHeight = 7.2 -- Reset to default jump height
-	-- 		end
-	-- 	end
-	-- end
-	teleportPlayers(self.players, "RoundEnd")
-
 	-- Add delay for players to see results
 	task.wait(3)
+	teleportPlayers(self.players, "RoundEnd")
 
 	-- Get new word for next round
-	-- You'll need to implement or connect to your word selection system here
-	-- For example:
-	-- self.word = WordService:GetNextWord() -- Replace with your word selection system
+	self.word = RandomWord()
 
 	-- Reset game state for next round
 	self.round = self.round + 1

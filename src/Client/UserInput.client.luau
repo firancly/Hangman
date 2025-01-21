@@ -22,6 +22,7 @@ local KeyboardRows = {
 	Lower = KeyboardUI:WaitForChild("Row_3"),
 }
 
+-- Utility functions to handle button click
 local function disableButton(button, letter)
 	if not button then
 		return
@@ -60,26 +61,48 @@ local function connectButtons(parent)
 	end
 end
 
+-- Handle button press events
 Events.ButtonPress.OnClientEvent:Connect(function(action, letter)
+	local keyboard = KeyboardUI:GetDescendants()
 	if action == "Button Disable" then
-		local keyboard = KeyboardUI:GetDescendants()
 		for _, ui in keyboard do
 			if ui:IsA("TextButton") and ui.Name == letter then
 				disableButton(ui, letter)
 			end
 		end
+	elseif action == "Reset Buttons" then
+		for _, ui in keyboard do
+			if ui:IsA("TextButton") then
+				ui.AutoButtonColor = true
+				ui.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+				for _, row in KeyboardRows do
+					connectButtons(row)
+				end
+			end
+		end
 	end
 end)
 
+-- Initialize word UI
 Events.WordLength.OnClientEvent:Connect(function(wordLength)
-	for i = 1, wordLength do
-		local underline = WordUI.UnderlineTemplate:Clone()
-		underline.Parent = WordUI
-		underline.Name = "Underline_" .. i
-		underline.Visible = true
+	if wordLength > 0 then
+		for i = 1, wordLength do
+			local underline = WordUI.UnderlineTemplate:Clone()
+			underline.Parent = WordUI
+			underline.Name = "Underline_" .. i
+			underline.Visible = true
+		end
+	else
+		local underlines = WordUI:GetChildren()
+		for _, underline in underlines do
+			if underline:IsA("Frame") and string.find(underline.Name, "Underline_") then
+				underline:Destroy()
+			end
+		end
 	end
 end)
 
+-- Update word UI
 Events.CorrectGuess.OnClientEvent:Connect(function(player, index, letter)
 	local underline = WordUI:FindFirstChild("Underline_" .. index)
 	if underline then
@@ -89,6 +112,6 @@ Events.CorrectGuess.OnClientEvent:Connect(function(player, index, letter)
 end)
 
 -- Initialize keyboard
-for _, row in pairs(KeyboardRows) do
+for _, row in KeyboardRows do
 	connectButtons(row)
 end

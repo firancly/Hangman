@@ -22,13 +22,8 @@ createRemoteEvent("ThemeVoteEvent")
 createRemoteEvent("WordLengthEvent")
 createRemoteEvent("CorrectGuessEvent")
 
--- Define a random theme and word
-local themes = script.Parent.Themes:GetChildren()
-local randomTheme: { string } = require(themes[math.random(1, #themes)])
-local word: string = randomTheme[math.random(1, #randomTheme)]
-
 -- Create a new multiplayer Hangman game
-local game = Hangman.new(players, word)
+local game = Hangman.new(players)
 
 task.spawn(function()
 	while true do

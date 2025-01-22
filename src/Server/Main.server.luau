@@ -21,9 +21,10 @@ createRemoteEvent("ButtonPressEvent")
 createRemoteEvent("ThemeVoteEvent")
 createRemoteEvent("WordLengthEvent")
 createRemoteEvent("CorrectGuessEvent")
+createRemoteEvent("GameOverEvent")
 
 -- Create a new multiplayer Hangman game
-local game = Hangman.new(players)
+local game = Hangman.new()
 
 task.spawn(function()
 	while true do

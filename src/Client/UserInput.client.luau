@@ -14,6 +14,7 @@ local Events = {
 	ButtonPress = ReplicatedStorage:WaitForChild("ButtonPressEvent"),
 	WordLength = ReplicatedStorage:WaitForChild("WordLengthEvent"),
 	CorrectGuess = ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
+	GameOver = ReplicatedStorage:WaitForChild("GameOverEvent"),
 }
 
 local KeyboardRows = {
@@ -61,30 +62,7 @@ local function connectButtons(parent)
 	end
 end
 
--- Handle button press events
-Events.ButtonPress.OnClientEvent:Connect(function(action, letter)
-	local keyboard = KeyboardUI:GetDescendants()
-	if action == "Button Disable" then
-		for _, ui in keyboard do
-			if ui:IsA("TextButton") and ui.Name == letter then
-				disableButton(ui, letter)
-			end
-		end
-	elseif action == "Reset Buttons" then
-		for _, ui in keyboard do
-			if ui:IsA("TextButton") then
-				ui.AutoButtonColor = true
-				ui.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-				for _, row in KeyboardRows do
-					connectButtons(row)
-				end
-			end
-		end
-	end
-end)
-
--- Initialize word UI
-Events.WordLength.OnClientEvent:Connect(function(wordLength)
+local function underlineUpdater(wordLength)
 	if wordLength > 0 then
 		for i = 1, wordLength do
 			local underline = WordUI.UnderlineTemplate:Clone()
@@ -100,6 +78,65 @@ Events.WordLength.OnClientEvent:Connect(function(wordLength)
 			end
 		end
 	end
+end
+
+local function wordViewUpdater(state)
+	if state == "GameOver" then -- Destroy underlines and game over message
+		-- Disable main ui
+		WordUI.Visible = false
+		KeyboardUI.Visible = false
+
+		-- Underline ui cleanup
+		local underlines = WordUI:GetChildren()
+		for _, underline in underlines do
+			if underline:IsA("Frame") and string.find(underline.Name, "Underline_") then
+				underline:Destroy()
+			end
+		end
+
+		-- Game over ui cleanup
+		for _, ui in ScreenGui.GameOver:GetChildren() do
+			ui.Visible = false
+		end
+
+		-- Keyboard reset
+		local keyboard = KeyboardUI:GetDescendants()
+		for _, ui in keyboard do
+			if ui:IsA("TextButton") then
+				ui.AutoButtonColor = true
+				ui.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+				for _, row in KeyboardRows do
+					connectButtons(row)
+				end
+			end
+		end
+	elseif state == "GameStart" then
+		print("GameStart")
+		-- Enable main ui
+		WordUI.Visible = true
+		KeyboardUI.Visible = true
+	end
+end
+
+-- Handle button press events
+Events.ButtonPress.OnClientEvent:Connect(function(action, letter)
+	local keyboard = KeyboardUI:GetDescendants()
+	if action == "Button Disable" then
+		for _, ui in keyboard do
+			if ui:IsA("TextButton") and ui.Name == letter then
+				disableButton(ui, letter)
+			end
+		end
+	elseif action == "Reset Buttons" then
+		wordViewUpdater("GameOver")
+	end
+end)
+
+-- Initialize word UI
+Events.WordLength.OnClientEvent:Connect(function(wordLength)
+	underlineUpdater(wordLength)
+	wordViewUpdater("GameStart")
+	print("GameStartCalled")
 end)
 
 -- Update word UI
@@ -108,6 +145,22 @@ Events.CorrectGuess.OnClientEvent:Connect(function(player, index, letter)
 	if underline then
 		local letterUi = underline.TextLabel
 		letterUi.Text = letter
+	end
+end)
+
+-- Handle game over event
+Events.GameOver.OnClientEvent:Connect(function(action)
+	local frame = ScreenGui.GameOver
+	local win = frame.Win
+	local lose = frame.Lose
+
+	-- Destroy all underlines
+	underlineUpdater(0)
+	if action == "Win" then
+		win.Visible = true
+	elseif action == "Lose" then
+		-- Display lose message
+		lose.Visible = true
 	end
 end)
 

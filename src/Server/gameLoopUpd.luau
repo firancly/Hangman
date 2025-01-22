@@ -130,10 +130,10 @@ local function RandomWord()
 end
 
 -- Constructor
-function Hangman.new(players)
+function Hangman.new()
 	local self = {
 		state = gameStates.INTERMISSION,
-		players = players,
+		players = game.Players:GetChildren(),
 		currentPlayerIndex = 1,
 		word = RandomWord(),
 		guessedLetters = {},
@@ -147,6 +147,7 @@ function Hangman.new(players)
 		ButtonPressEvent = game.ReplicatedStorage:WaitForChild("ButtonPressEvent"),
 		WordLengthEvent = game.ReplicatedStorage:WaitForChild("WordLengthEvent"),
 		CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
+		GameOverEvent = game.ReplicatedStorage:WaitForChild("GameOverEvent"),
 	}
 
 	game.Players.PlayerAdded:Connect(function(player)
@@ -240,6 +241,14 @@ function Hangman:handleIntermission()
 		task.wait(1) -- Check player count every second
 	end
 
+	-- Update players
+	local players = game.Players:GetChildren()
+	while #players == 0 do
+		game.Players.PlayerAdded:Wait()
+		players = game.Players:GetChildren()
+	end
+	self.players = players
+
 	print("Intermission: Players, vote for a theme!")
 
 	self.hasGuessed = false
@@ -254,9 +263,12 @@ end
 	Players are teleported to their chairs and the word length is displayed.
 ]]
 function Hangman:startRound()
-	warn(self.word)
-	self.Events.WordLengthEvent:FireAllClients(self.word:len())
+	-- Get new word for new round
+	self.word = RandomWord()
+	warn(self.word) -- Display text for testing purposes
+	self.Events.WordLengthEvent:FireAllClients(self.word:len()) -- send length to client to update underlines
 
+	-- TP to seats
 	teleportPlayers(self.players, self.state)
 
 	self.state = gameStates.PLAYER_TURN
@@ -275,8 +287,6 @@ function Hangman:handlePlayerTurn()
 		warn("No current player!")
 		return
 	end
-
-	-- Check if
 
 	local startTime = os.time()
 	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
@@ -322,6 +332,9 @@ function Hangman:guessLetter(player, letter)
 			if self:checkWinCondition() then
 				self.state = gameStates.ROUND_END
 				print("Round over! " .. player.Name .. " wins!")
+				-- Send player.name to the client to update the ui
+				self.Events.GameOverEvent:FireAllClients("Win")
+				print("fired all clients")
 				return true
 			end
 			return true
@@ -330,6 +343,7 @@ function Hangman:guessLetter(player, letter)
 			if self.remainingAttempts <= 0 then
 				self.state = gameStates.ROUND_END
 				print("Round over! " .. player.Name .. " loses!")
+				self.Events.GameOverEvent:FireAllClients("Lose")
 				return false
 			end
 			return false
@@ -380,13 +394,6 @@ function Hangman:nextPlayer()
 end
 
 function Hangman:endRound()
-	-- Add delay for players to see results
-	task.wait(3)
-	teleportPlayers(self.players, "RoundEnd")
-
-	-- Get new word for next round
-	self.word = RandomWord()
-
 	-- Reset game state for next round
 	self.round = self.round + 1
 	self.currentPlayerIndex = 1
@@ -394,11 +401,16 @@ function Hangman:endRound()
 	self.remainingAttempts = CONFIG.MAX_ATTEMPTS
 	self.hasGuessed = false
 
-	-- Reset UI elements
-	self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
-
 	-- Clear the previous word display
 	self.Events.WordLengthEvent:FireAllClients(0) -- Clear the current word display
+
+	-- Add delay for players to see results
+	task.wait(3)
+
+	teleportPlayers(self.players, "RoundEnd")
+
+	-- Reset UI elements
+	self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
 
 	-- Transition to intermission state
 	self.state = gameStates.INTERMISSION

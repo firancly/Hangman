@@ -24,32 +24,79 @@ local function teleportPlayers(players, state)
 	local chairs = workspace.Chairs:GetChildren()
 	print(players)
 
-	if state == "GameStart" then
+	if state == "GameStart" then -- Teleport players to chairs
+		local occupiedChairs = {}
+
+		-- Shuffle the chairs and assign them to players
+		local shuffleChairs = {}
+		for _, chair in chairs do
+			table.insert(shuffleChairs, chair)
+		end
+		for i = #shuffleChairs, 2, -1 do
+			local j = math.random(1, i)
+			shuffleChairs[i], shuffleChairs[j] = shuffleChairs[j], shuffleChairs[i]
+		end
+
 		for i, player in players do
-			local chair = chairs[i]
-			if chair and player.Character then
+			local chair = shuffleChairs[i]
+			if chair and not occupiedChairs[chair] and player.Character then
 				local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
 				local humanoid = player.Character:FindFirstChild("Humanoid")
 				if humanoidRootPart then
+					-- Disable player movement
 					humanoid.WalkSpeed = 0
 					humanoid.JumpHeight = 0
-					humanoidRootPart.CFrame = chair:GetPivot()
+
+					-- Teleport the player to the chair
+					if chair and chair.PrimaryPart then
+						humanoidRootPart.CFrame = chair.PrimaryPart.CFrame
+							* CFrame.new(0, 1, 0) -- Offset the player above the chair
+							* CFrame.Angles(0, math.rad(90), 0) -- Rotate the player to face a specific direction
+					else
+						warn("Invalid chair or missing PrimaryPart.")
+					end
+
+					-- Extra check if the player is wrongly sitting
+					task.wait(1)
+
+					humanoidRootPart.CFrame = chair.PrimaryPart.CFrame
+						* CFrame.new(0, 1, 0)
+						* CFrame.Angles(0, math.rad(90), 0)
+					humanoid.Sit = true
+					occupiedChairs[chair] = true
 				end
 			else
 				if not chair then
 					warn("Not enough chairs for " .. player.Name)
+				elseif occupiedChairs[chair] then
+					warn("Chair is already occupied.")
 				end
 				if not player.Character then
 					warn(player.Name .. " does not have a character.")
 				end
 			end
 		end
-	else
+	else -- Teleport players to the lobby
 		for _, player in players do
 			if player.Character then
 				local humanoid = player.Character:FindFirstChild("Humanoid")
-				-- Teleport players outside of the match area
+				local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+				local lobby = workspace.IntermissionTP
+
+				-- Random position around the lobby
+				local positionRange = 10
+				local rotationRange = 180
+				local randomRotation = CFrame.Angles(0, math.rad(math.random(-rotationRange, rotationRange)), 0)
+				local randomPostion = Vector3.new(
+					math.random(-positionRange, positionRange),
+					0,
+					math.random(-positionRange, positionRange)
+				)
+
+				-- Teleport the player
 				if humanoid then
+					humanoid.Sit = false
+					humanoidRootPart.CFrame = lobby.CFrame * CFrame.new(randomPostion) * randomRotation
 					humanoid.WalkSpeed = 16 -- Reset to default walk speed
 					humanoid.JumpHeight = 7.2 -- Reset to default jump height
 				end
@@ -127,7 +174,7 @@ function Hangman.new(players)
 				return
 			end
 
-			if currentTime - self.lastGuessTime < 0.5 then -- 500ms debounce
+			if currentTime - self.lastGuessTime < 0.2 then -- 500ms debounce
 				return
 			end
 

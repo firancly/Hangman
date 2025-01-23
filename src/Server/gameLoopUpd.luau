@@ -148,6 +148,7 @@ function Hangman.new()
 		WordLengthEvent = game.ReplicatedStorage:WaitForChild("WordLengthEvent"),
 		CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
 		GameOverEvent = game.ReplicatedStorage:WaitForChild("GameOverEvent"),
+		TestEvent = game.ReplicatedStorage:WaitForChild("TestEvent"),
 	}
 
 	game.Players.PlayerAdded:Connect(function(player)
@@ -265,6 +266,10 @@ end
 function Hangman:startRound()
 	-- Get new word for new round
 	self.word = RandomWord()
+
+	-- send the word to the client test
+	self.Events.TestEvent:FireAllClients(self.word)
+
 	warn(self.word) -- Display text for testing purposes
 	self.Events.WordLengthEvent:FireAllClients(self.word:len()) -- send length to client to update underlines
 

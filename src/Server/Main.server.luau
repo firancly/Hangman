@@ -22,6 +22,7 @@ createRemoteEvent("ThemeVoteEvent")
 createRemoteEvent("WordLengthEvent")
 createRemoteEvent("CorrectGuessEvent")
 createRemoteEvent("GameOverEvent")
+createRemoteEvent("TestEvent")
 
 -- Create a new multiplayer Hangman game
 local game = Hangman.new()

@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
@@ -15,6 +16,7 @@ local Events = {
 	WordLength = ReplicatedStorage:WaitForChild("WordLengthEvent"),
 	CorrectGuess = ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
 	GameOver = ReplicatedStorage:WaitForChild("GameOverEvent"),
+	TestEvent = ReplicatedStorage:WaitForChild("TestEvent"),
 }
 
 local KeyboardRows = {
@@ -162,6 +164,12 @@ Events.GameOver.OnClientEvent:Connect(function(action)
 		-- Display lose message
 		lose.Visible = true
 	end
+end)
+
+-- TEST EVENT
+Events.TestEvent.OnClientEvent:Connect(function(word)
+	local textLabel = ScreenGui.Shit.TextLabel
+	textLabel.Text = word
 end)
 
 -- Initialize keyboard

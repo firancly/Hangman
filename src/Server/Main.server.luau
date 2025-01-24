@@ -2,12 +2,12 @@
 local Hangman = require(script.Parent:WaitForChild("gameLoopUpd"))
 
 -- Define players and word database
-local players = game.Players:GetChildren()
-if #players == 0 then
-	game.Players.PlayerAdded:Wait()
-	players = game.Players:GetChildren()
-end
-print("Players:", players)
+-- local players = game.Players:GetChildren()
+-- if #players == 0 then
+-- 	game.Players.PlayerAdded:Wait()
+-- 	players = game.Players:GetChildren()
+-- end
+-- print("Players:", players)
 
 -- Create remote events
 local function createRemoteEvent(name)

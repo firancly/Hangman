@@ -22,7 +22,6 @@ local gameStates = {
 -- Utility functions (kept outside the class since they don't need self)
 local function teleportPlayers(players, state)
 	local chairs = workspace.Chairs:GetChildren()
-	print(players)
 
 	if state == "GameStart" then -- Teleport players to chairs
 		local occupiedChairs = {}
@@ -151,11 +150,6 @@ function Hangman.new()
 		TestEvent = game.ReplicatedStorage:WaitForChild("TestEvent"),
 	}
 
-	game.Players.PlayerAdded:Connect(function(player)
-		table.insert(self.players, player)
-		print(player.Name .. " joined! Players: " .. #self.players)
-	end)
-
 	game.Players.PlayerRemoving:Connect(function(player)
 		for i, activePlayer in self.players do
 			if activePlayer == player then
@@ -217,12 +211,6 @@ function Hangman:update()
 		[gameStates.ROUND_END] = self.endRound,
 	}
 
-	if #self.players < CONFIG.MIN_PLAYERS then
-		print("Not enough players to start. Returning to intermission.")
-		self.state = gameStates.INTERMISSION
-		return
-	end
-
 	local handler = stateHandlers[self.state]
 	if handler then
 		game.TestService:Error(self.state)
@@ -237,18 +225,17 @@ end
 	Once the intermission time is up, the game transitions to the ROUND_START state.
 ]]
 function Hangman:handleIntermission()
+	-- Update players
 	while #self.players < CONFIG.MIN_PLAYERS do
 		print("Waiting for more players... (" .. #self.players .. "/" .. CONFIG.MIN_PLAYERS .. ")")
+		game.Players.PlayerAdded:Connect(function(player)
+			if not table.find(self.players, player) then
+				table.insert(self.players, player)
+				print(player.Name .. " joined! Players: " .. #self.players)
+			end
+		end)
 		task.wait(1) -- Check player count every second
 	end
-
-	-- Update players
-	local players = game.Players:GetChildren()
-	while #players == 0 do
-		game.Players.PlayerAdded:Wait()
-		players = game.Players:GetChildren()
-	end
-	self.players = players
 
 	print("Intermission: Players, vote for a theme!")
 
@@ -270,11 +257,11 @@ function Hangman:startRound()
 	-- send the word to the client test
 	self.Events.TestEvent:FireAllClients(self.word)
 
-	warn(self.word) -- Display text for testing purposes
-	self.Events.WordLengthEvent:FireAllClients(self.word:len()) -- send length to client to update underlines
-
 	-- TP to seats
 	teleportPlayers(self.players, self.state)
+
+	warn(self.word) -- Display text for testing purposes
+	self.Events.WordLengthEvent:FireAllClients(self.word:len()) -- send length to client to update underlines
 
 	self.state = gameStates.PLAYER_TURN
 	self.remainingAttempts = CONFIG.MAX_ATTEMPTS
@@ -346,8 +333,12 @@ function Hangman:guessLetter(player, letter)
 		else
 			self.remainingAttempts = self.remainingAttempts - 1
 			if self.remainingAttempts <= 0 then
-				self.state = gameStates.ROUND_END
-				print("Round over! " .. player.Name .. " loses!")
+				if #self.players > 0 then
+					self.nextPlayer()
+				else
+					self.state = gameStates.ROUND_END -- Change this to kick the player out of the active players and end the round when there are no active players
+					print("Round over! " .. player.Name .. " loses!")
+				end
 				self.Events.GameOverEvent:FireAllClients("Lose")
 				return false
 			end
@@ -367,35 +358,13 @@ function Hangman:checkWinCondition()
 	return allLettersGuessed
 end
 
-function Hangman:checkRoundOver()
-	local allLettersGuessed = true
-	for letter in string.gmatch(self.word, "%a") do
-		if not table.find(self.guessedLetters, letter) then
-			allLettersGuessed = false
-			break
-		end
-	end
-
-	if allLettersGuessed then
-		self.state = gameStates.ROUND_END
-		return true, "Round over! " .. self.players[self.currentPlayerIndex].Name .. " wins!"
-	end
-
-	if self.remainingAttempts <= 0 then
-		self.state = gameStates.ROUND_END
-		return true, "Round over! " .. self.players[self.currentPlayerIndex].Name .. " loses!"
-	end
-
-	return false
-end
-
 function Hangman:nextPlayer()
-	self.currentPlayerIndex = self.currentPlayerIndex + 1
+	self.currentPlayerIndex += 1
 	if self.currentPlayerIndex > #self.players then
 		self.currentPlayerIndex = 1
 	end
 	self.hasGuessed = false
-	print("Next player is:", self.players[self.currentPlayerIndex].Name)
+	print("Next player is:", self.players[self.currentPlayerIndex])
 end
 
 function Hangman:endRound()

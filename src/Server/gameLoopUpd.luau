@@ -128,11 +128,22 @@ local function RandomWord()
 	return string.upper(word)
 end
 
+local function playerRound()
+	-- Send the player to the intermission area and remove the ui
+end
+
 -- Constructor
 function Hangman.new()
+	local activePlayers = {}
+	for _, player in game.Players:GetPlayers() do
+		if player.Character then
+			table.insert(activePlayers, player)
+		end
+	end
+
 	local self = {
 		state = gameStates.INTERMISSION,
-		players = game.Players:GetChildren(),
+		players = activePlayers,
 		currentPlayerIndex = 1,
 		word = RandomWord(),
 		guessedLetters = {},
@@ -151,8 +162,8 @@ function Hangman.new()
 	}
 
 	game.Players.PlayerRemoving:Connect(function(player)
-		for i, activePlayer in self.players do
-			if activePlayer == player then
+		for i = #self.players, 1, -1 do
+			if self.players[i] == player then
 				table.remove(self.players, i)
 				print(player.Name .. " left! Players: " .. #self.players)
 				break
@@ -333,6 +344,16 @@ function Hangman:guessLetter(player, letter)
 		else
 			self.remainingAttempts = self.remainingAttempts - 1
 			if self.remainingAttempts <= 0 then
+				for i = #self.players, 1, -1 do
+					if self.players[i] == player then
+						table.remove(self.players, i)
+						print(player.Name .. " loses! Players: " .. #self.players)
+						teleportPlayers({ player }, "RoundEnd") -- Add something to display you lose and remove the player
+						print("Players", #self.players)
+						break
+					end
+				end
+
 				if #self.players > 0 then
 					self.nextPlayer()
 				else
@@ -359,10 +380,19 @@ function Hangman:checkWinCondition()
 end
 
 function Hangman:nextPlayer()
+	if not self.players or #self.players == 0 then
+		warn("No players to switch to!")
+		self.state = gameStates.ROUND_END
+		return
+	end
+
+	warn("CurrentPlayer Index", self.currentPlayerIndex, "Table:", self.players)
 	self.currentPlayerIndex += 1
+
 	if self.currentPlayerIndex > #self.players then
 		self.currentPlayerIndex = 1
 	end
+
 	self.hasGuessed = false
 	print("Next player is:", self.players[self.currentPlayerIndex])
 end
@@ -374,6 +404,13 @@ function Hangman:endRound()
 	self.guessedLetters = {}
 	self.remainingAttempts = CONFIG.MAX_ATTEMPTS
 	self.hasGuessed = false
+
+	self.players = {}
+	for _, player in game.Players:GetPlayers() do
+		if player.Character then
+			table.insert(self.players, player)
+		end
+	end
 
 	-- Clear the previous word display
 	self.Events.WordLengthEvent:FireAllClients(0) -- Clear the current word display

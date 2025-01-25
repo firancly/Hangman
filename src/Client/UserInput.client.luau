@@ -138,7 +138,6 @@ end)
 Events.WordLength.OnClientEvent:Connect(function(wordLength)
 	underlineUpdater(wordLength)
 	wordViewUpdater("GameStart")
-	print("GameStartCalled")
 end)
 
 -- Update word UI

@@ -349,6 +349,8 @@ function Hangman:guessLetter(player, letter)
 						table.remove(self.players, i)
 						print(player.Name .. " loses! Players: " .. #self.players)
 						teleportPlayers({ player }, "RoundEnd") -- Add something to display you lose and remove the player
+						self.Events.WordLengthEvent:FireClient(player, 0)
+						print("Kicked the", player, "out of the game! Skill issue noob!")
 						print("Players", #self.players)
 						break
 					end
@@ -405,13 +407,6 @@ function Hangman:endRound()
 	self.remainingAttempts = CONFIG.MAX_ATTEMPTS
 	self.hasGuessed = false
 
-	self.players = {}
-	for _, player in game.Players:GetPlayers() do
-		if player.Character then
-			table.insert(self.players, player)
-		end
-	end
-
 	-- Clear the previous word display
 	self.Events.WordLengthEvent:FireAllClients(0) -- Clear the current word display
 
@@ -422,6 +417,14 @@ function Hangman:endRound()
 
 	-- Reset UI elements
 	self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
+
+	-- Add players back to the active players table
+	self.players = {}
+	for _, player in game.Players:GetPlayers() do
+		if player.Character then
+			table.insert(self.players, player)
+		end
+	end
 
 	-- Transition to intermission state
 	self.state = gameStates.INTERMISSION

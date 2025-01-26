@@ -159,6 +159,7 @@ function Hangman.new()
 		CorrectGuessEvent = game.ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
 		GameOverEvent = game.ReplicatedStorage:WaitForChild("GameOverEvent"),
 		TestEvent = game.ReplicatedStorage:WaitForChild("TestEvent"),
+		TimerEvent = game.ReplicatedStorage:WaitForChild("TimerEvent"),
 	}
 
 	game.Players.PlayerRemoving:Connect(function(player)
@@ -248,12 +249,14 @@ function Hangman:handleIntermission()
 		task.wait(1) -- Check player count every second
 	end
 
+	-- Make a timer for 20 secs
 	print("Intermission: Players, vote for a theme!")
 
 	self.hasGuessed = false
+	self.Events.TimerEvent:FireAllClients(CONFIG.INTERMISSION_TIME)
+	-- Send an event to update the timer on the client
 	task.wait(CONFIG.INTERMISSION_TIME)
 
-	print("Intermission over!")
 	self.state = gameStates.ROUND_START
 end
 
@@ -313,16 +316,14 @@ function Hangman:guessLetter(player, letter)
 			self.guessedLetters = {}
 		end
 
-		warn("Current guessedLetters table:", table.concat(self.guessedLetters, ", "))
+		print("Current guessedLetters table:", table.concat(self.guessedLetters, ", "))
 
 		if table.find(self.guessedLetters, letter) then
 			warn("Letter already guessed:", letter)
 			return false
 		end
 
-		warn("Before insert:", #self.guessedLetters)
 		table.insert(self.guessedLetters, letter)
-		warn("After insert:", #self.guessedLetters)
 		self.Events.ButtonPressEvent:FireAllClients("Button Disable", letter)
 
 		local indexes = findAllIndexes(self.word, letter)

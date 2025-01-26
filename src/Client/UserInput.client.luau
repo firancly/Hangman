@@ -17,6 +17,7 @@ local Events = {
 	CorrectGuess = ReplicatedStorage:WaitForChild("CorrectGuessEvent"),
 	GameOver = ReplicatedStorage:WaitForChild("GameOverEvent"),
 	TestEvent = ReplicatedStorage:WaitForChild("TestEvent"),
+	TimerEvent = ReplicatedStorage:WaitForChild("TimerEvent"),
 }
 
 local KeyboardRows = {
@@ -169,6 +170,23 @@ end)
 Events.TestEvent.OnClientEvent:Connect(function(word)
 	local textLabel = ScreenGui.Shit.TextLabel
 	textLabel.Text = word
+end)
+
+-- TIMER EVENT
+Events.TimerEvent.OnClientEvent:Connect(function(time: number)
+	-- Change the timer text every sec
+	local timer = ScreenGui:WaitForChild("Timer")
+	local timerText = timer.TextLabel
+	timerText.Text = time
+
+	local counter = time
+
+	for _, sec in time do
+		-- change the time - 1
+		counter -= 1
+		timerText.Text = counter - 1
+		task.wait(1)
+	end
 end)
 
 -- Initialize keyboard

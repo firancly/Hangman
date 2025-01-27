@@ -172,21 +172,22 @@ Events.TestEvent.OnClientEvent:Connect(function(word)
 	textLabel.Text = word
 end)
 
--- TIMER EVENT
+-- INTERMISSION TIMER EVENT
 Events.TimerEvent.OnClientEvent:Connect(function(time: number)
-	-- Change the timer text every sec
 	local timer = ScreenGui:WaitForChild("Timer")
 	local timerText = timer.TextLabel
 	timerText.Text = time
-
 	local counter = time
 
-	for _, sec in time do
-		-- change the time - 1
+	timer.Visible = if time == 0 then false else true
+
+	while counter > 0 do
 		counter -= 1
-		timerText.Text = counter - 1
+		timerText.Text = counter
 		task.wait(1)
 	end
+
+	timer.Visible = false
 end)
 
 -- Initialize keyboard

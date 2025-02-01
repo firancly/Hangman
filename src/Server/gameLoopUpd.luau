@@ -45,12 +45,17 @@ local function teleportPlayers(players, state)
 					-- Disable player movement
 					humanoid.WalkSpeed = 0
 					humanoid.JumpHeight = 0
+					humanoidRootPart.Anchored = true -- Prevent the player from falling of the chair
 
 					-- Teleport the player to the chair
 					if chair and chair.PrimaryPart then
 						humanoidRootPart.CFrame = chair.PrimaryPart.CFrame
 							* CFrame.new(0, 1, 0) -- Offset the player above the chair
 							* CFrame.Angles(0, math.rad(90), 0) -- Rotate the player to face a specific direction
+
+						task.wait(0.2)
+
+						humanoidRootPart.Anchored = false
 					else
 						warn("Invalid chair or missing PrimaryPart.")
 					end

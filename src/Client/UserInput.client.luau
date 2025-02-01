@@ -56,6 +56,7 @@ local stateHandlers = {
 	end,
 }
 
+-- Change the size of the sign container based on the word length
 local function updateContainerSize(wordLength)
 	local smallSign = sign.Parent.SmallSign
 	local normalSign = sign.Parent.NormalSign
@@ -73,6 +74,7 @@ local function updateContainerSize(wordLength)
 	end
 end
 
+-- Change the state of a button
 local function updateButtonState(button, state)
 	if not button or not stateHandlers[state] then
 		return
@@ -82,7 +84,7 @@ local function updateButtonState(button, state)
 	stateHandlers[state](button)
 end
 
--- Utility functions to handle button click
+-- Disable a button
 local function disableButton(button)
 	if not button then
 		return
@@ -99,6 +101,7 @@ local function disableButton(button)
 	end
 end
 
+-- Fire server event when a button is clicked
 local function handleButtonClick(button)
 	if not button then
 		return
@@ -106,6 +109,7 @@ local function handleButtonClick(button)
 	Events.ButtonPress:FireServer("Button Input", button.Name)
 end
 
+-- Connect button events
 local function connectButtons(parent)
 	for _, button in parent:GetChildren() do
 		if button:IsA("TextButton") then
@@ -134,6 +138,12 @@ local function connectButtons(parent)
 	end
 end
 
+-- Initialize keyboard
+for _, row in KeyboardRows do
+	connectButtons(row)
+end
+
+-- Reset button connections after round ends
 local function cleanupButtons()
 	local keyboard = KeyboardUI:GetDescendants()
 	for _, button in keyboard do
@@ -149,6 +159,7 @@ local function cleanupButtons()
 	end
 end
 
+-- Update underlines based on word length
 local function underlineUpdater(wordLength)
 	if wordLength > 0 then
 		for i = 1, wordLength do
@@ -169,6 +180,7 @@ local function underlineUpdater(wordLength)
 	end
 end
 
+-- Update word view based on game state
 local function wordViewUpdater(state)
 	if state == "GameOver" then -- Destroy underlines and game over message
 		-- Disable main ui
@@ -183,6 +195,7 @@ local function wordViewUpdater(state)
 			end
 		end
 
+		task.wait(3)
 		-- Game over ui cleanup
 		for _, ui in ScreenGui.GameOver:GetChildren() do
 			ui.Visible = false
@@ -235,18 +248,13 @@ Events.GameOver.OnClientEvent:Connect(function(action)
 	-- Destroy all underlines
 	underlineUpdater(0)
 	updateContainerSize(0)
+
 	if action == "Win" then
 		win.Visible = true
 	elseif action == "Lose" then
 		-- Display lose message
 		lose.Visible = true
 	end
-end)
-
--- TEST EVENT
-Events.TestEvent.OnClientEvent:Connect(function(word)
-	local textLabel = ScreenGui.Shit.TextLabel
-	textLabel.Text = word
 end)
 
 -- INTERMISSION TIMER EVENT
@@ -267,7 +275,8 @@ Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 	timer.Visible = false
 end)
 
--- Initialize keyboard
-for _, row in KeyboardRows do
-	connectButtons(row)
-end
+-- TEST EVENT
+Events.TestEvent.OnClientEvent:Connect(function(word)
+	local textLabel = ScreenGui.Shit.TextLabel
+	textLabel.Text = word
+end)

@@ -8,7 +8,7 @@ local ScreenGui = PlayerGui:WaitForChild("ScreenGui")
 
 local KeyboardUI = ScreenGui.Keyboard
 local WordUI = ScreenGui.Word
-local sign = ScreenGui.WordSign
+local sign = ScreenGui.Sign.WordSign
 
 -- Store button connections so we can disconnect them later
 local buttonConnections = {}
@@ -56,25 +56,21 @@ local stateHandlers = {
 	end,
 }
 
-local function updateContainerSize(container)
-	local gridLayout = container:FindFirstChildOfClass("UIGridLayout")
-	local padding = container:FindFirstChildOfClass("UIPadding")
+local function updateContainerSize(wordLength)
+	local smallSign = sign.Parent.SmallSign
+	local normalSign = sign.Parent.NormalSign
+	local largeSign = sign.Parent.LongSign
 
-	if not gridLayout then
-		return
+	-- Maybe add some tweening between transitions idk
+	if wordLength == 0 then
+		normalSign.Visible = false
+		smallSign.Visible = true
+		largeSign.Visible = false
+	else
+		smallSign.Visible = wordLength > 0 and wordLength <= 5
+		normalSign.Visible = wordLength > 5 and wordLength <= 8
+		largeSign.Visible = wordLength > 8
 	end
-
-	-- Get layout properties
-	local cellSize = gridLayout.CellSize.X.Offset
-	local cellPadding = gridLayout.CellPadding.X.Offset
-	local containerPadding = padding and (padding.PaddingLeft.Offset + padding.PaddingRight.Offset) or 0
-
-	-- Calculate required width
-	local childCount = #container:GetChildren() - 2 -- Subtract UIGridLayout and UIPadding
-	local totalWidth = (cellSize * childCount) + (cellPadding * (childCount - 1)) + containerPadding
-
-	-- Update container size
-	container.Size = UDim2.new(0, totalWidth, container.Size.Y.Scale, container.Size.Y.Offset)
 end
 
 local function updateButtonState(button, state)
@@ -156,20 +152,20 @@ end
 local function underlineUpdater(wordLength)
 	if wordLength > 0 then
 		for i = 1, wordLength do
-			local underline = WordUI.UnderlineTemplate:Clone()
-			underline.Parent = WordUI
-			underline.Name = "Underline_" .. i
+			local underline = sign.UnderlineTemplate:Clone()
+			underline.Parent = sign
+			underline.Name = "Underline_" .. string.format("%02d", i)
 			underline.Visible = true
 		end
-		updateContainerSize(WordUI)
+		updateContainerSize(wordLength)
 	else
-		local underlines = WordUI:GetChildren()
+		local underlines = sign:GetChildren()
 		for _, underline in underlines do
 			if underline:IsA("Frame") and string.find(underline.Name, "Underline_") then
 				underline:Destroy()
 			end
 		end
-		updateContainerSize(WordUI)
+		updateContainerSize(wordLength)
 	end
 end
 
@@ -192,17 +188,6 @@ local function wordViewUpdater(state)
 			ui.Visible = false
 		end
 
-		-- Keyboard reset
-		-- local keyboard = KeyboardUI:GetDescendants()
-		-- for _, ui in keyboard do
-		-- 	if ui:IsA("TextButton") then
-		-- 		ui.AutoButtonColor = true
-		-- 		ui.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		-- 		for _, row in KeyboardRows do
-		-- 			connectButtons(row)
-		-- 		end
-		-- 	end
-		-- end
 		cleanupButtons()
 	elseif state == "GameStart" then
 		print("GameStart")
@@ -228,34 +213,16 @@ end)
 
 -- Initialize word UI
 Events.WordLength.OnClientEvent:Connect(function(wordLength)
-	if wordLength > 0 then
-		for i = 1, wordLength do
-			local underline = sign.UnderlineTemplate:Clone()
-			underline.Parent = sign
-			underline.Name = "Underline_" .. i
-			underline.Visible = true
-		end
-	else
-		local underlines = sign:GetChildren()
-		for _, underline in underlines do
-			if underline:IsA("Frame") and string.find(underline.Name, "Underline_") then
-				underline:Destroy()
-			end
-		end
-	end
 	underlineUpdater(wordLength)
 	wordViewUpdater("GameStart")
 end)
 
 -- Update word UI
 Events.CorrectGuess.OnClientEvent:Connect(function(player, index, letter)
-	local underline = WordUI:FindFirstChild("Underline_" .. index)
-	local signUnderline = sign:FindFirstChild("Underline_" .. index)
-	if underline and signUnderline then
-		local letterUi = underline.TextLabel
+	local signUnderline = sign:FindFirstChild("Underline_" .. string.format("%02d", index))
+	if signUnderline then
 		local signUi = signUnderline.TextLabel
 		signUi.Text = letter
-		letterUi.Text = letter
 	end
 end)
 
@@ -267,6 +234,7 @@ Events.GameOver.OnClientEvent:Connect(function(action)
 
 	-- Destroy all underlines
 	underlineUpdater(0)
+	updateContainerSize(0)
 	if action == "Win" then
 		win.Visible = true
 	elseif action == "Lose" then

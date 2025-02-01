@@ -26,7 +26,6 @@ return {
 	"Optician",
 	"Painter",
 	"Pharmacist",
-	"Photographer",
 	"Plumber",
 	"Potter",
 	"Programmer",
@@ -35,8 +34,6 @@ return {
 	"Soldier",
 	"Tailor",
 	"Trainer",
-	"Veterinarian",
-	"Videographer",
 	"Welder",
 	"Zookeeper",
 }

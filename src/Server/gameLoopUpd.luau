@@ -120,7 +120,8 @@ end
 local function RandomWord()
 	local themes = script.Parent.Themes:GetChildren()
 	local randomTheme: { string } = require(themes[math.random(1, #themes)])
-	local word = randomTheme[math.random(1, #randomTheme)]
+	-- local word = randomTheme[math.random(1, #randomTheme)]
+	local word = "Grasshopper"
 
 	return string.upper(word)
 end
@@ -277,6 +278,27 @@ function Hangman:startRound()
 	self.hasGuessed = false
 end
 
+function Hangman:checkAttempts(currentPlayer)
+	if self.playerAttempts[currentPlayer.UserId] <= 0 then
+		for i = #self.players, 1, -1 do
+			if self.players[i] == currentPlayer then
+				-- Remove the player from the game
+				table.remove(self.players, i)
+				teleportPlayers({ currentPlayer }, "RoundEnd")
+
+				-- Update UI
+				self.Events.WordLengthEvent:FireClient(currentPlayer, 0)
+				self.Events.GameOverEvent:FireClient(currentPlayer, "Lose")
+
+				-- Humiliate the player
+				print("Kicked the", currentPlayer, "out of the game! Skill issue noob!")
+				print("Players:", #self.players)
+				break
+			end
+		end
+	end
+end
+
 function Hangman:handlePlayerTurn()
 	local currentPlayer = self.players[self.currentPlayerIndex]
 	if not currentPlayer then
@@ -299,8 +321,10 @@ function Hangman:handlePlayerTurn()
 		if not self.hasGuessed then
 			warn("Player did not guess in time!")
 
+			-- Have a global attempts manager
 			self.playerAttempts[currentPlayer.UserId] -= 1
 			print("Attempts:", self.playerAttempts[currentPlayer.UserId], "for player", currentPlayer)
+			-- self:checkAttempts(currentPlayer) -----------------------------------------------------------------------------------------------------------DISABLED FOR TESTING
 		end
 		-- self.Events.TimerEvent:FireAllClients(0)
 		warn("Next Player!")
@@ -348,31 +372,16 @@ function Hangman:guessLetter(player, letter)
 
 			self.playerAttempts[player.UserId] -= 1
 
-			if self.playerAttempts[player.UserId] <= 0 then
-				for i = #self.players, 1, -1 do
-					if self.players[i] == player then
-						-- Remove player from the game
-						table.remove(self.players, i)
-						print(player.Name .. " loses! Players: " .. #self.players)
+			self:checkAttempts(player)
 
-						-- Handle elimenated player
-						teleportPlayers({ player }, "RoundEnd") -- Add something to display you lose and remove the player
-						self.Events.WordLengthEvent:FireClient(player, 0)
-						self.Events.GameOverEvent:FireClient(player, "Lose")
-						print("Kicked the", player, "out of the game! Skill issue noob!")
-						print("Players:", #self.players)
-
-						if #self.players > 0 then
-							self.state = gameStates.PLAYER_TURN
-							self:nextPlayer() -- Move to next player
-						else
-							self.state = gameStates.ROUND_END
-							print("Round over - no players remaining!")
-						end
-						break
-					end
-				end
+			if #self.players > 0 then
+				self.state = gameStates.PLAYER_TURN
+				self:nextPlayer() -- Move to next player
+			else
+				self.state = gameStates.ROUND_END
+				print("Round over - no players remaining!")
 			end
+
 			return false
 		end
 	end
@@ -410,13 +419,13 @@ function Hangman:endRound()
 	self.Events.TimerEvent:FireAllClients(0) -- Clear the timer display
 	self.Events.WordLengthEvent:FireAllClients(0) -- Clear the current word display
 
+	-- Reset UI elements
+	self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
+
 	-- Add delay for players to see results
 	task.wait(3)
 
 	teleportPlayers(self.players, "RoundEnd")
-
-	-- Reset UI elements
-	self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
 
 	-- Transition to intermission state
 	self.state = gameStates.INTERMISSION

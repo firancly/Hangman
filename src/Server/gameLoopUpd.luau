@@ -125,8 +125,7 @@ end
 local function RandomWord()
 	local themes = script.Parent.Themes:GetChildren()
 	local randomTheme: { string } = require(themes[math.random(1, #themes)])
-	-- local word = randomTheme[math.random(1, #randomTheme)]
-	local word = "Grasshopper"
+	local word = randomTheme[math.random(1, #randomTheme)]
 
 	return string.upper(word)
 end
@@ -139,8 +138,13 @@ function Hangman:handleButtonPress(player, action, letter)
 	if action == "Button Input" then
 		local currentTime = os.clock()
 
-		if self.hasGuessed then
-			warn("You have already guessed!")
+		if
+			self.state ~= gameStates.PLAYER_TURN
+			or player ~= self.players[self.currentPlayerIndex]
+			or self.playerAttempts[player.UserId] <= 0
+			or self.hasGuessed
+		then
+			warn("Not allowed to guess!")
 			return
 		end
 
@@ -149,19 +153,13 @@ function Hangman:handleButtonPress(player, action, letter)
 		end
 
 		self.lastGuessTime = currentTime
+		self.hasGuessed = true
 
-		if self.state == gameStates.PLAYER_TURN and player == self.players[self.currentPlayerIndex] then
-			self.hasGuessed = true
-			print(player.Name .. " pressed: " .. letter)
-			local success = self:guessLetter(player, letter)
-			if success then
-				print("Correct guess!")
-			else
-				warn("Incorrect guess!")
-			end
-			self:nextPlayer()
-		else
-			warn("It's not your turn, " .. player.Name .. "!")
+		print(player.Name .. " pressed: " .. letter)
+		local success = self:guessLetter(player, letter)
+		if success then
+			print("Correct guess!")
+			self.hasGuessed = false
 		end
 	end
 end
@@ -189,8 +187,8 @@ function Hangman.new()
 		remainingAttempts = CONFIG.MAX_ATTEMPTS,
 		hasGuessed = false,
 		round = 1,
-		lastGuessTime = 0,
-		timerConnections = {},
+		lastGuessTime = 0, -- for button press spam prevention
+		timerConnection = nil,
 	}
 
 	self.Events = {
@@ -200,6 +198,7 @@ function Hangman.new()
 		GameOverEvent = game.ReplicatedStorage:WaitForChild("GameOverEvent"),
 		TestEvent = game.ReplicatedStorage:WaitForChild("TestEvent"),
 		TimerEvent = game.ReplicatedStorage:WaitForChild("TimerEvent"),
+		PlayerAttemptsEvent = game.ReplicatedStorage:WaitForChild("PlayerAttemptsEvent"),
 	}
 
 	game.Players.PlayerRemoving:Connect(function(player)
@@ -272,9 +271,9 @@ function Hangman:startRound()
 	-- TP to seats
 	teleportPlayers(self.players, self.state)
 
-	warn(self.word) -- Display text for testing purposes
 	for _, player in self.players do
-		-- send length to active players to update underlines
+		-- Update underlines
+		self.Events.PlayerAttemptsEvent:FireClient(player, self.playerAttempts[player.UserId])
 		self.Events.WordLengthEvent:FireClient(player, self.word:len())
 	end
 
@@ -284,6 +283,8 @@ function Hangman:startRound()
 end
 
 function Hangman:checkAttempts(currentPlayer)
+	print("Attempts:", self.playerAttempts[currentPlayer.UserId], "for player", currentPlayer)
+	self.Events.PlayerAttemptsEvent:FireClient(currentPlayer, self.playerAttempts[currentPlayer.UserId])
 	if self.playerAttempts[currentPlayer.UserId] <= 0 then
 		for i = #self.players, 1, -1 do
 			if self.players[i] == currentPlayer then
@@ -296,11 +297,22 @@ function Hangman:checkAttempts(currentPlayer)
 				self.Events.GameOverEvent:FireClient(currentPlayer, "Lose")
 
 				-- Humiliate the player
-				print("Kicked the", currentPlayer, "out of the game! Skill issue noob!")
 				print("Players:", #self.players)
 				break
 			end
 		end
+	end
+end
+
+function Hangman:handleIncorrectGuess(player)
+	self.playerAttempts[player.UserId] -= 1
+	self:checkAttempts(player)
+
+	if #self.players > 0 then
+		self:nextPlayer() -- Move to next player
+	else
+		self.state = gameStates.ROUND_END
+		print("Round over - no players remaining!")
 	end
 end
 
@@ -311,13 +323,19 @@ function Hangman:handlePlayerTurn()
 		return
 	end
 
+	self.Events.TimerEvent:FireAllClients(CONFIG.PLAYER_TURN_TIME)
 	local startTime = os.time()
 	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
 
 	-- Only continue player turn if we're still in PLAYER_TURN state
 	while os.time() < endTime and self.state == gameStates.PLAYER_TURN do
-		-- local timeLeft = endTime - os.time()
-		-- self.Events.TimerEvent:FireAllClients(timeLeft)
+		local timeLeft = endTime - os.time()
+		self.Events.TimerEvent:FireAllClients(timeLeft)
+
+		if self.hasGuessed then
+			break
+		end
+
 		task.wait(1)
 	end
 
@@ -326,14 +344,11 @@ function Hangman:handlePlayerTurn()
 		if not self.hasGuessed then
 			warn("Player did not guess in time!")
 
-			-- Have a global attempts manager
-			self.playerAttempts[currentPlayer.UserId] -= 1
-			print("Attempts:", self.playerAttempts[currentPlayer.UserId], "for player", currentPlayer)
-			-- self:checkAttempts(currentPlayer) -----------------------------------------------------------------------------------------------------------DISABLED FOR TESTING
+			self:handleIncorrectGuess(currentPlayer)
 		end
-		-- self.Events.TimerEvent:FireAllClients(0)
+
+		self.Events.TimerEvent:FireAllClients(0)
 		warn("Next Player!")
-		self:nextPlayer()
 	end
 end
 
@@ -344,8 +359,6 @@ function Hangman:guessLetter(player, letter)
 			self.guessedLetters = {}
 		end
 
-		print("Current guessedLetters table:", table.concat(self.guessedLetters, ", "))
-
 		if table.find(self.guessedLetters, letter) then
 			warn("Letter already guessed:", letter)
 			return false
@@ -353,6 +366,8 @@ function Hangman:guessLetter(player, letter)
 
 		table.insert(self.guessedLetters, letter)
 		self.Events.ButtonPressEvent:FireAllClients("Button Disable", letter)
+
+		print("Current guessedLetters table:", table.concat(self.guessedLetters, ", "))
 
 		local indexes = findAllIndexes(self.word, letter)
 		if #indexes > 0 then
@@ -366,7 +381,6 @@ function Hangman:guessLetter(player, letter)
 				print("Round over! " .. player.Name .. " wins!")
 				-- Send player.name to the client to update the ui
 				self.Events.GameOverEvent:FireAllClients("Win")
-				print("fired all clients")
 				return true
 			end
 			return true
@@ -375,17 +389,7 @@ function Hangman:guessLetter(player, letter)
 				self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
 			end
 
-			self.playerAttempts[player.UserId] -= 1
-
-			self:checkAttempts(player)
-
-			if #self.players > 0 then
-				self.state = gameStates.PLAYER_TURN
-				self:nextPlayer() -- Move to next player
-			else
-				self.state = gameStates.ROUND_END
-				print("Round over - no players remaining!")
-			end
+			self:handleIncorrectGuess(player)
 
 			return false
 		end
@@ -400,15 +404,12 @@ function Hangman:nextPlayer()
 	end
 
 	warn("CurrentPlayer Index", self.currentPlayerIndex, "Table:", self.players)
-	self.currentPlayerIndex += 1
 
 	-- Hang the player
 
-	if self.currentPlayerIndex > #self.players then
-		self.currentPlayerIndex = 1
-	end
-
+	self.currentPlayerIndex = (self.currentPlayerIndex % #self.players) + 1
 	self.hasGuessed = false
+	self.state = gameStates.PLAYER_TURN
 	print("Next player is:", self.players[self.currentPlayerIndex])
 end
 

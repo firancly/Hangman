@@ -21,6 +21,7 @@ local Events = {
 	TestEvent = ReplicatedStorage:WaitForChild("TestEvent"),
 	TimerEvent = ReplicatedStorage:WaitForChild("TimerEvent"),
 	PlayerAttempts = ReplicatedStorage:WaitForChild("PlayerAttemptsEvent"),
+	CurrentPlayer = ReplicatedStorage:WaitForChild("CurrentPlayerEvent"),
 }
 
 local KeyboardRows = {
@@ -286,4 +287,10 @@ end)
 Events.PlayerAttempts.OnClientEvent:Connect(function(attempts)
 	local textLabel = ScreenGui.Shit.Attempts
 	textLabel.Text = "Attempts: " .. attempts
+end)
+
+-- Display current player
+Events.CurrentPlayer.OnClientEvent:Connect(function(player)
+	local textLabel = ScreenGui.Shit.Player
+	textLabel.Text = player
 end)

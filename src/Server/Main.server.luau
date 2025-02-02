@@ -16,6 +16,7 @@ createRemoteEvent("GameOverEvent")
 createRemoteEvent("TestEvent")
 createRemoteEvent("TimerEvent")
 createRemoteEvent("PlayerAttemptsEvent")
+createRemoteEvent("CurrentPlayerEvent")
 
 -- Create a new multiplayer Hangman game
 local game = Hangman.new()

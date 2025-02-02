@@ -199,6 +199,7 @@ function Hangman.new()
 		TestEvent = game.ReplicatedStorage:WaitForChild("TestEvent"),
 		TimerEvent = game.ReplicatedStorage:WaitForChild("TimerEvent"),
 		PlayerAttemptsEvent = game.ReplicatedStorage:WaitForChild("PlayerAttemptsEvent"),
+		CurrentPlayerEvent = game.ReplicatedStorage:WaitForChild("CurrentPlayerEvent"),
 	}
 
 	game.Players.PlayerRemoving:Connect(function(player)
@@ -323,6 +324,7 @@ function Hangman:handlePlayerTurn()
 		return
 	end
 
+	self.Events.CurrentPlayerEvent:FireAllClients(self.players[self.currentPlayerIndex].Name)
 	self.Events.TimerEvent:FireAllClients(CONFIG.PLAYER_TURN_TIME)
 	local startTime = os.time()
 	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
@@ -380,7 +382,7 @@ function Hangman:guessLetter(player, letter)
 				self.state = gameStates.ROUND_END
 				print("Round over! " .. player.Name .. " wins!")
 				-- Send player.name to the client to update the ui
-				self.Events.GameOverEvent:FireAllClients("Win")
+				self.Events.GameOverEvent:FireClient(player, "Win")
 				return true
 			end
 			return true

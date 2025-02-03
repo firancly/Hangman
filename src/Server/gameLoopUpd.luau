@@ -188,7 +188,8 @@ function Hangman.new()
 		hasGuessed = false,
 		round = 1,
 		lastGuessTime = 0, -- for button press spam prevention
-		timerConnection = nil,
+		timeConnection = nil,
+		turnTimeRemaining = CONFIG.PLAYER_TURN_TIME,
 	}
 
 	self.Events = {
@@ -317,6 +318,33 @@ function Hangman:handleIncorrectGuess(player)
 	end
 end
 
+function Hangman:startTimer()
+	if self.timerConnection then
+		self.timerConnection:Disconnect()
+	end
+
+	self.turnTimeRemaining = CONFIG.PLAYER_TURN_TIME
+
+	self.timerConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
+		if self.turnTimeRemaining > 0 then
+			self.turnTimeRemaining -= deltaTime
+		else
+			self.timerConnection:Disconnect()
+			self.timerConnection = nil
+			self:handleIncorrectGuess(self.players[self.currentPlayerIndex])
+		end
+
+		self.turnTimeRemaining -= game:GetService("RunService").Heartbeat:Wait()
+		self.Events.TimerEvent:FireAllClients(self.turnTimeRemaining)
+
+		if self.turnTimeRemaining <= 0 then
+			self.timerConnection:Disconnect()
+			self.timerConnection = nil
+			self:handleIncorrectGuess(self.players[self.currentPlayerIndex])
+		end
+	end)
+end
+
 function Hangman:handlePlayerTurn()
 	local currentPlayer = self.players[self.currentPlayerIndex]
 	if not currentPlayer then
@@ -326,6 +354,7 @@ function Hangman:handlePlayerTurn()
 
 	self.Events.CurrentPlayerEvent:FireAllClients(self.players[self.currentPlayerIndex].Name)
 	self.Events.TimerEvent:FireAllClients(CONFIG.PLAYER_TURN_TIME)
+
 	local startTime = os.time()
 	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
 
@@ -333,6 +362,7 @@ function Hangman:handlePlayerTurn()
 	while os.time() < endTime and self.state == gameStates.PLAYER_TURN do
 		local timeLeft = endTime - os.time()
 		self.Events.TimerEvent:FireAllClients(timeLeft)
+		print(currentPlayer, "has", timeLeft, "seconds left to guess!")
 
 		if self.hasGuessed then
 			break

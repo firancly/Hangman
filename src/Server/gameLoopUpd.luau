@@ -130,10 +130,6 @@ local function RandomWord()
 	return string.upper(word)
 end
 
-local function playerRound()
-	-- Send the player to the intermission area and remove the ui
-end
-
 function Hangman:handleButtonPress(player, action, letter)
 	if action == "Button Input" then
 		local currentTime = os.clock()
@@ -175,6 +171,27 @@ function Hangman:checkWinCondition()
 	return allLettersGuessed
 end
 
+function Hangman:initializePlayers()
+	self.players = {}
+	self.playerAttempts = {}
+
+	for _, player in game.Players:GetPlayers() do
+		if player.Character then
+			if not table.find(self.players, player) then
+				table.insert(self.players, player)
+				self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
+			end
+		else
+			warn(player.Name .. " has no character, waiting for load")
+			player.CharacterAdded:Wait()
+			table.insert(self.players, player)
+			self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
+		end
+	end
+
+	return #self.players > 0
+end
+
 -- Constructor
 function Hangman.new()
 	local self = {
@@ -182,14 +199,19 @@ function Hangman.new()
 		players = {},
 		playerAttempts = {},
 		currentPlayerIndex = 1,
+		currentPlayer = nil,
 		word = RandomWord(),
 		guessedLetters = {},
 		remainingAttempts = CONFIG.MAX_ATTEMPTS,
 		hasGuessed = false,
 		round = 1,
 		lastGuessTime = 0, -- for button press spam prevention
-		timeConnection = nil,
+		timerConnection = nil,
 		turnTimeRemaining = CONFIG.PLAYER_TURN_TIME,
+		lastUpdateTime = os.time(),
+		currentTime = os.time(),
+		endTime = 0,
+		isInIntermission = false,
 	}
 
 	self.Events = {
@@ -239,6 +261,11 @@ function Hangman:update()
 end
 
 function Hangman:handleIntermission()
+	if self.isInIntermission then
+		return
+	end
+
+	self.isInIntermission = true
 	-- Update players table & attempts
 	self:initializePlayers()
 
@@ -251,16 +278,19 @@ function Hangman:handleIntermission()
 	print("Intermission: Players, vote for a theme!", self.players)
 
 	-- Send an event to update the timer on the client
-	local timeRemmaining = CONFIG.INTERMISSION_TIME + 1
-	while timeRemmaining > 0 and self.state == gameStates.INTERMISSION do
-		self.Events.TimerEvent:FireAllClients(timeRemmaining)
-		task.wait(1)
-		timeRemmaining -= 1
-	end
+	-- local timeRemmaining = CONFIG.INTERMISSION_TIME + 1
+	-- while timeRemmaining > 0 and self.state == gameStates.INTERMISSION do
+	-- 	self.Events.TimerEvent:FireAllClients(timeRemmaining)
+	-- 	task.wait(1)
+	-- 	timeRemmaining -= 1
+	-- end
 
-	self.Events.TimerEvent:FireAllClients(0)
+	-- self.Events.TimerEvent:FireAllClients(0)
 
-	self.state = gameStates.ROUND_START
+	-- New timer
+	self:startTimer(CONFIG.INTERMISSION_TIME, function()
+		self.state = gameStates.ROUND_START
+	end)
 end
 
 function Hangman:startRound()
@@ -318,70 +348,84 @@ function Hangman:handleIncorrectGuess(player)
 	end
 end
 
-function Hangman:startTimer()
+function Hangman:startTimer(duration, callback)
 	if self.timerConnection then
 		self.timerConnection:Disconnect()
 	end
 
-	self.turnTimeRemaining = CONFIG.PLAYER_TURN_TIME
+	self.currentTime = duration
+	self.endTime = os.time() + duration
+	print("Start time:", os.time(), "End time:", self.endTime) -- Debug print
+	self.Events.TimerEvent:FireAllClients(self.currentTime)
 
-	self.timerConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
-		if self.turnTimeRemaining > 0 then
-			self.turnTimeRemaining -= deltaTime
-		else
-			self.timerConnection:Disconnect()
-			self.timerConnection = nil
-			self:handleIncorrectGuess(self.players[self.currentPlayerIndex])
-		end
+	self.timerConnection = game:GetService("RunService").Heartbeat:Connect(function()
+		local currentOsTime = os.time()
+		local timeLeft = self.endTime - currentOsTime
+		print("Current time:", currentOsTime, "Time left:", timeLeft) -- Debug print
 
-		self.turnTimeRemaining -= game:GetService("RunService").Heartbeat:Wait()
-		self.Events.TimerEvent:FireAllClients(self.turnTimeRemaining)
+		if timeLeft ~= self.currentTime then
+			print("Time changed from", self.currentTime, "to", timeLeft) -- Debug print
+			self.currentTime = timeLeft
+			self.Events.TimerEvent:FireAllClients(self.currentTime)
 
-		if self.turnTimeRemaining <= 0 then
-			self.timerConnection:Disconnect()
-			self.timerConnection = nil
-			self:handleIncorrectGuess(self.players[self.currentPlayerIndex])
+			if self.currentTime % 5 == 0 or self.currentTime <= 5 then
+				print("Timer:", self.currentTime)
+			end
+
+			if self.currentTime <= 0 then
+				self.timerConnection:Disconnect()
+				if callback then
+					callback()
+				end
+			end
 		end
 	end)
 end
 
 function Hangman:handlePlayerTurn()
-	local currentPlayer = self.players[self.currentPlayerIndex]
-	if not currentPlayer then
+	self.currentPlayer = self.players[self.currentPlayerIndex]
+	if not self.currentPlayer then
 		warn("No current player!")
 		return
 	end
 
-	self.Events.CurrentPlayerEvent:FireAllClients(self.players[self.currentPlayerIndex].Name)
+	self.Events.CurrentPlayerEvent:FireAllClients(self.currentPlayer.Name)
 	self.Events.TimerEvent:FireAllClients(CONFIG.PLAYER_TURN_TIME)
 
-	local startTime = os.time()
-	local endTime = startTime + CONFIG.PLAYER_TURN_TIME
+	-- local startTime = os.time()
+	-- local endTime = startTime + CONFIG.PLAYER_TURN_TIME
 
-	-- Only continue player turn if we're still in PLAYER_TURN state
-	while os.time() < endTime and self.state == gameStates.PLAYER_TURN do
-		local timeLeft = endTime - os.time()
-		self.Events.TimerEvent:FireAllClients(timeLeft)
-		print(currentPlayer, "has", timeLeft, "seconds left to guess!")
+	-- -- Only continue player turn if we're still in PLAYER_TURN state
+	-- while os.time() < endTime and self.state == gameStates.PLAYER_TURN do
+	-- 	local timeLeft = endTime - os.time()
+	-- 	self.Events.TimerEvent:FireAllClients(timeLeft)
+	-- 	print(self.currentPlayer, "has", timeLeft, "seconds left to guess!")
 
-		if self.hasGuessed then
-			break
-		end
+	-- 	if self.hasGuessed then
+	-- 		break
+	-- 	end
 
-		task.wait(1)
-	end
-
-	-- Only move to next player if still in PLAYER_TURN state
-	if self.state == gameStates.PLAYER_TURN then
+	-- 	task.wait(1)
+	-- end
+	self:startTimer(CONFIG.PLAYER_TURN_TIME, function()
 		if not self.hasGuessed then
 			warn("Player did not guess in time!")
-
-			self:handleIncorrectGuess(currentPlayer)
+			self:handleIncorrectGuess(self.currentPlayer)
 		end
-
-		self.Events.TimerEvent:FireAllClients(0)
 		warn("Next Player!")
-	end
+	end)
+
+	-- -- Only move to next player if still in PLAYER_TURN state
+	-- if self.state == gameStates.PLAYER_TURN then
+	-- 	if not self.hasGuessed then
+	-- 		warn("Player did not guess in time!")
+
+	-- 		self:handleIncorrectGuess(currentPlayer)
+	-- 	end
+
+	-- 	self.Events.TimerEvent:FireAllClients(0)
+	-- 	warn("Next Player!")
+	-- end
 end
 
 function Hangman:guessLetter(player, letter)
@@ -467,27 +511,6 @@ function Hangman:endRound()
 
 	-- Transition to intermission state
 	self.state = gameStates.INTERMISSION
-end
-
-function Hangman:initializePlayers()
-	self.players = {}
-	self.playerAttempts = {}
-
-	for _, player in game.Players:GetPlayers() do
-		if player.Character then
-			if not table.find(self.players, player) then
-				table.insert(self.players, player)
-				self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
-			end
-		else
-			warn(player.Name .. " has no character, waiting for load")
-			player.CharacterAdded:Wait()
-			table.insert(self.players, player)
-			self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
-		end
-	end
-
-	return #self.players > 0
 end
 
 return Hangman

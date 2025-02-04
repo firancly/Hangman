@@ -1,5 +1,6 @@
--- Script: MainScript
-local Hangman = require(script.Parent:WaitForChild("gameLoopUpd"))
+--!strict
+local RunService = game:GetService("RunService")
+local Hangman = require(script.Parent:WaitForChild("State"))
 
 -- Create remote events
 local function createRemoteEvent(name)
@@ -18,12 +19,12 @@ createRemoteEvent("TimerEvent")
 createRemoteEvent("PlayerAttemptsEvent")
 createRemoteEvent("CurrentPlayerEvent")
 
--- Create a new multiplayer Hangman game
+-- Create game instance with states
 local game = Hangman.new()
+game:setState(Hangman.gameStates.INTERMISSION)
 
-task.spawn(function()
-	while true do
+RunService.Heartbeat:Connect(function()
+	if game then
 		game:update()
-		task.wait(0.5)
 	end
 end)

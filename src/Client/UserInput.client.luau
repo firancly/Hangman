@@ -264,17 +264,8 @@ Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 	local timer = ScreenGui:WaitForChild("Timer")
 	local timerText = timer.TextLabel
 	timerText.Text = time
-	local counter = time
 
 	timer.Visible = if time == 0 then false else true
-
-	while counter > 0 do
-		counter -= 1
-		timerText.Text = counter
-		task.wait(1)
-	end
-
-	timer.Visible = false
 end)
 
 -- TEST EVENT

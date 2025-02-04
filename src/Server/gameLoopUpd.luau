@@ -175,18 +175,22 @@ function Hangman:initializePlayers()
 	self.players = {}
 	self.playerAttempts = {}
 
-	for _, player in game.Players:GetPlayers() do
-		if player.Character then
-			if not table.find(self.players, player) then
+	while #self.players < CONFIG.MIN_PLAYERS do
+		for _, player in game.Players:GetPlayers() do
+			if player.Character then
+				if not table.find(self.players, player) then
+					table.insert(self.players, player)
+					self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
+				end
+			else
+				warn(player.Name .. " has no character, waiting for load")
+				player.CharacterAdded:Wait()
 				table.insert(self.players, player)
 				self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
 			end
-		else
-			warn(player.Name .. " has no character, waiting for load")
-			player.CharacterAdded:Wait()
-			table.insert(self.players, player)
-			self.playerAttempts[player.UserId] = CONFIG.MAX_ATTEMPTS
 		end
+
+		task.wait(1)
 	end
 
 	return #self.players > 0
@@ -269,11 +273,11 @@ function Hangman:handleIntermission()
 	-- Update players table & attempts
 	self:initializePlayers()
 
-	while #self.players < CONFIG.MIN_PLAYERS do
-		print("Waiting for more players... (" .. #self.players .. "/" .. CONFIG.MIN_PLAYERS .. ")")
-		task.wait(1) -- Check player count every second
-		self:initializePlayers()
-	end
+	-- while #self.players < CONFIG.MIN_PLAYERS do
+	-- 	print("Waiting for more players... (" .. #self.players .. "/" .. CONFIG.MIN_PLAYERS .. ")")
+	-- 	task.wait(1) -- Check player count every second
+	-- 	self:initializePlayers()
+	-- end
 
 	print("Intermission: Players, vote for a theme!", self.players)
 

@@ -73,6 +73,7 @@ end
 Hangman.stateHandlers = {
 	[gameStates.INTERMISSION] = {
 		enter = function(self)
+			-- warn("Intermission state entered")
 			-- Initialize intermission state
 			self:initializePlayers()
 
@@ -86,12 +87,15 @@ Hangman.stateHandlers = {
 			-- Clean up intermission state
 			if self.timerConnection then
 				self.timerConnection:Disconnect()
+				self.timerConnection = nil
+				self.Events.TimerEvent:FireAllClients(0)
 			end
 		end,
 	},
 
 	[gameStates.ROUND_START] = {
 		enter = function(self)
+			-- warn("Round start state entered")
 			-- Initialize round
 			self.word = self:RandomWord()
 			self.Events.TestEvent:FireAllClients(self.word)
@@ -111,6 +115,7 @@ Hangman.stateHandlers = {
 
 	[gameStates.PLAYER_TURN] = {
 		enter = function(self)
+			-- warn("Player turn state entered")
 			self.currentPlayer = self.players[self.currentPlayerIndex]
 			if not self.currentPlayer then
 				warn("No current player!")
@@ -134,12 +139,15 @@ Hangman.stateHandlers = {
 		exit = function(self)
 			if self.timerConnection then
 				self.timerConnection:Disconnect()
+				self.timerConnection = nil
+				self.Events.TimerEvent:FireAllClients(0)
 			end
 		end,
 	},
 
 	[gameStates.ROUND_END] = {
 		enter = function(self)
+			-- warn("Round end state entered")
 			-- Reset game state for next round
 			self.round = self.round + 1
 			self.currentPlayerIndex = 1
@@ -148,12 +156,17 @@ Hangman.stateHandlers = {
 			self.hasGuessed = false
 
 			-- Clear UI
-			self.Events.TimerEvent:FireAllClients(0)
 			self.Events.WordLengthEvent:FireAllClients(0)
 			self.Events.ButtonPressEvent:FireAllClients("Reset Buttons")
 
+			-- Reset the timer for the next round
+
+			assert(self.timerConnection == nil, "Timer should be nil after cleanup")
+
+			print("before delay:", os.time())
 			-- Add delay and teleport
-			task.delay(3, function()
+			task.delay(5, function()
+				print("after delay:", os.time())
 				self:teleportPlayers(self.players, "RoundEnd")
 				self:setState(gameStates.INTERMISSION)
 			end)
@@ -345,10 +358,8 @@ function Hangman:handleButtonPress(player, action, letter)
 		self.lastGuessTime = currentTime
 		self.hasGuessed = true
 
-		print(player.Name .. " pressed: " .. letter)
 		local success = self:guessLetter(player, letter)
 		if success then
-			print("Correct guess!")
 			self:nextPlayer()
 		else
 			self:handleIncorrectGuess(player)
@@ -381,10 +392,10 @@ function Hangman:guessLetter(player, letter)
 
 			-- Check if the round is over immediately after a correct guess
 			if self:checkWinCondition() then
-				self.state = gameStates.ROUND_END
 				print("Round over! " .. player.Name .. " wins!")
 				-- Send player.name to the client to update the ui
 				self.Events.GameOverEvent:FireClient(player, "Win")
+				self:setState(gameStates.ROUND_END)
 				return true
 			end
 			return true
@@ -395,9 +406,9 @@ function Hangman:guessLetter(player, letter)
 end
 
 function Hangman:nextPlayer()
-	if not self.players or #self.players == 0 then
+	if not self.players or #self.players == 0 or self.state == gameStates.ROUND_END then
 		warn("No players to switch to!")
-		self.state = gameStates.ROUND_END
+		self:setState(gameStates.ROUND_END)
 		return
 	end
 
@@ -405,27 +416,10 @@ function Hangman:nextPlayer()
 
 	-- Hang the player
 
-	-- Start the timer for next player
-	if self.timerConnection then
-		self.timerConnection:Disconnect()
-		self.timerConnection = nil
-	end
-
 	self.currentPlayerIndex = (self.currentPlayerIndex % #self.players) + 1
 	self.hasGuessed = false
-	self.state = gameStates.PLAYER_TURN
 
-	assert(self.timerConnection == nil, "Timer should be nil before starting new one")
-
-	self:startTimer(CONFIG.PLAYER_TURN_TIME, function()
-		if self.hasGuessed then
-			self:nextPlayer()
-		elseif not self.hasGuessed then
-			warn("Player did not guess in time!")
-			self:handleIncorrectGuess(self.currentPlayer)
-		end
-	end)
-
+	self:setState(gameStates.PLAYER_TURN)
 	print("Next player is:", self.players[self.currentPlayerIndex])
 end
 
@@ -436,12 +430,7 @@ function Hangman:handleIncorrectGuess(player)
 	self.playerAttempts[player.UserId] -= 1
 	self:checkAttempts(player)
 
-	if #self.players > 0 then
-		self:nextPlayer() -- Move to next player
-	else
-		self.state = gameStates.ROUND_END
-		print("Round over - no players remaining!")
-	end
+	self:nextPlayer() -- Move to next playe
 end
 
 function Hangman:checkAttempts(currentPlayer)

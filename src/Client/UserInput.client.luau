@@ -197,7 +197,7 @@ local function wordViewUpdater(state)
 			end
 		end
 
-		task.wait(3)
+		task.wait(5)
 		-- Game over ui cleanup
 		for _, ui in ScreenGui.GameOver:GetChildren() do
 			ui.Visible = false
@@ -205,7 +205,6 @@ local function wordViewUpdater(state)
 
 		cleanupButtons()
 	elseif state == "GameStart" then
-		print("GameStart")
 		-- Enable main ui
 		WordUI.Visible = true
 		KeyboardUI.Visible = true
@@ -229,7 +228,11 @@ end)
 -- Initialize word UI
 Events.WordLength.OnClientEvent:Connect(function(wordLength)
 	underlineUpdater(wordLength)
-	wordViewUpdater("GameStart")
+	if wordLength <= 0 then
+		wordViewUpdater("GameOver")
+	else
+		wordViewUpdater("GameStart")
+	end
 end)
 
 -- Update word UI
@@ -263,9 +266,15 @@ end)
 Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 	local timer = ScreenGui:WaitForChild("Timer")
 	local timerText = timer.TextLabel
+
+	if not time or time < 0 then
+		timer.Visible = false
+		return
+	end
+
 	timerText.Text = time
 
-	timer.Visible = if time == 0 then false else true
+	timer.Visible = time > 0
 end)
 
 -- TEST EVENT

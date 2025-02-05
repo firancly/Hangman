@@ -198,7 +198,7 @@ function Hangman:setState(newState, ...)
 end
 
 ----- MAIN FUNCTIONS -----
--- Used to add players to the game
+-- Used to add players to the game.
 function Hangman:initializePlayers()
 	self.players = {}
 	self.playerAttempts = {}

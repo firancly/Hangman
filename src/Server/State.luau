@@ -1,7 +1,7 @@
 local Hangman = {}
 Hangman.__index = Hangman
 
-local Chances = require(script.Parent.Chances)
+local Stats = require(script.Parent:WaitForChild("Stats"))
 
 -- Configuration
 local CONFIG = {
@@ -399,13 +399,13 @@ function Hangman:guessLetter(player, letter)
 			end
 
 			-- send letter to update chances
-			Chances.updatePlayerChances(player, #indexes, false)
+			Stats.updatePlayerStats(player, #indexes, false)
 
 			-- Check if the round is over immediately after a correct guess
 			if self:checkWinCondition() then
 				print("Round over! " .. player.Name .. " wins!")
 				-- send word = true to update chances
-
+				Stats.updatePlayerStats(player, 0, true)
 				-- Send player.name to the client to update the ui
 				self.Events.GameOverEvent:FireClient(player, "Win")
 				self:setState(gameStates.ROUND_END)

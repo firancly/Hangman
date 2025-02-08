@@ -1,6 +1,8 @@
 local Hangman = {}
 Hangman.__index = Hangman
 
+local Chances = require(script.Parent.Chances)
+
 -- Configuration
 local CONFIG = {
 	MAX_ATTEMPTS = 6,
@@ -22,22 +24,27 @@ function Hangman.new()
 	local self = {
 		state = nil,
 		currentState = nil,
+
+		-- Players
 		players = {},
 		playerAttempts = {},
 		currentPlayerIndex = 1,
 		currentPlayer = nil,
+
+		-- Word
 		word = "",
 		guessedLetters = {},
-		remainingAttempts = CONFIG.MAX_ATTEMPTS,
 		hasGuessed = false,
-		round = 1,
+		remainingAttempts = CONFIG.MAX_ATTEMPTS,
 		lastGuessTime = 0, -- for button press spam prevention
-		timerConnection = nil,
-		turnTimeRemaining = CONFIG.PLAYER_TURN_TIME,
-		lastUpdateTime = os.time(),
+
+		-- Timers
+		timerConnection = nil, -- Important
 		currentTime = os.time(),
 		endTime = 0,
-		isInIntermission = false,
+
+		-- Misc
+		round = 1,
 	}
 
 	self.Events = {
@@ -198,7 +205,7 @@ function Hangman:setState(newState, ...)
 end
 
 ----- MAIN FUNCTIONS -----
--- Used to add players to the game.
+-- Used to add players to the game
 function Hangman:initializePlayers()
 	self.players = {}
 	self.playerAttempts = {}
@@ -387,12 +394,18 @@ function Hangman:guessLetter(player, letter)
 		local indexes = self:findAllIndexes(self.word, letter)
 		if #indexes > 0 then
 			for _, index in indexes do
+				-- Give player points and add it to the leaderboard
 				self.Events.CorrectGuessEvent:FireAllClients(player, index, letter)
 			end
+
+			-- send letter to update chances
+			Chances.updatePlayerChances(player, #indexes, false)
 
 			-- Check if the round is over immediately after a correct guess
 			if self:checkWinCondition() then
 				print("Round over! " .. player.Name .. " wins!")
+				-- send word = true to update chances
+
 				-- Send player.name to the client to update the ui
 				self.Events.GameOverEvent:FireClient(player, "Win")
 				self:setState(gameStates.ROUND_END)

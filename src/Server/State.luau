@@ -9,7 +9,7 @@ local Stats = require(script.Parent:WaitForChild("Stats"))
 local CONFIG = {
 	MAX_ATTEMPTS = 6,
 	INTERMISSION_TIME = 5,
-	HANGMAN_TIME = 10,
+	HANGMAN_TIME = 5,
 	PLAYER_TURN_TIME = 10,
 	MIN_PLAYERS = 1,
 	MAX_PLAYERS = 8,
@@ -111,7 +111,7 @@ Hangman.stateHandlers = {
 
 			-- 10 seconds to choose the hangman with ui
 			self:chooseHangman(self.players)
-			self.Events.HangmanSelectionEvent:FireAllClients("Start")
+
 			self:startTimer(CONFIG.HANGMAN_TIME, function()
 				self.Events.HangmanSelectionEvent:FireAllClients("End")
 
@@ -519,7 +519,6 @@ function Hangman:chooseHangman(players)
 	local weightTable = {}
 	local totalWeight = 0
 	-- Access the datastore
-	--  Stats.initializePlayer(player)
 	-- Get cumilative weight of all the players in the game
 	-- Randomly select the player with the highest change to be the Hangman
 
@@ -545,6 +544,9 @@ function Hangman:chooseHangman(players)
 	for _, entry in weightTable do
 		if randomValue <= entry.cumilative then
 			print("Hangman is:", entry.player)
+			local playerStats = Stats.getPlayerStats(entry.player)
+			playerStats.totalChances = 0
+			self.Events.HangmanSelectionEvent:FireAllClients("Start", randomValue, totalWeight, hangman)
 			return entry.player
 		end
 	end

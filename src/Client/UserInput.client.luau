@@ -7,7 +7,6 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 local ScreenGui = PlayerGui:WaitForChild("ScreenGui")
 
 local KeyboardUI = ScreenGui.Keyboard
-local WordUI = ScreenGui.Word
 local sign = ScreenGui.Sign.WordSign
 
 -- Store button connections so we can disconnect them later
@@ -187,16 +186,9 @@ end
 local function wordViewUpdater(state)
 	if state == "GameOver" then -- Destroy underlines and game over message
 		-- Disable main ui
-		WordUI.Visible = false
 		KeyboardUI.Visible = false
 
 		-- Underline ui cleanup
-		local underlines = WordUI:GetChildren()
-		for _, underline in underlines do
-			if underline:IsA("Frame") and string.find(underline.Name, "Underline_") then
-				underline:Destroy()
-			end
-		end
 
 		task.wait(5)
 		-- Game over ui cleanup
@@ -207,7 +199,6 @@ local function wordViewUpdater(state)
 		cleanupButtons()
 	elseif state == "GameStart" then
 		-- Enable main ui
-		WordUI.Visible = true
 		KeyboardUI.Visible = true
 	end
 end
@@ -279,7 +270,7 @@ Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 end)
 
 -- CHOOSE THE HANGMAN
-Events.HangmanSelection.OnClientEvent:Connect(function(state)
+Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, totalWeight, hangman)
 	local poster = ScreenGui.HangmanSelection.Poster
 	local avatars = poster:GetChildren()
 	poster.Parent.Visible = true
@@ -308,6 +299,103 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state)
 			else
 				warn("Failed to load thumbnail for player: " .. player.Name)
 			end
+		end
+	end
+
+	-- Adjust the progress bar according to the random value
+	local progressContainer = poster.Parent.PercentageSelection.ProgressBar
+	local progressBar = progressContainer.Bar
+
+	local fillPercentage = randomValue / totalWeight
+	print(fillPercentage)
+
+	local TweenService = game:GetService("TweenService")
+	local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+	local goal = {
+		Size = UDim2.new(fillPercentage, 0, 1, 0), -- Keep height at 100%, width based on percentage
+	}
+
+	local tween = TweenService:Create(progressBar, tweenInfo, goal)
+	tween:Play()
+
+	-- Make the Selection overlay go over random players and then stop at the hangman player
+	-- Selection overlay is local selecitonOverlay = poster.Selection:GetChildren() -- basically put overlays over the the thumbnails on and off them and then stop at the hangman
+
+	-- Add selection overlay animation
+	local selectionOverlay = poster.Selection:GetChildren()
+	local currentIndex = 1
+	local animationDuration = 1.5 -- Duration before final selection
+	local switchInterval = 0.1 -- Time between switches
+
+	-- Function to move overlay between players
+	local function moveOverlay()
+		-- Hide all overlays first
+		for _, overlay in selectionOverlay do
+			overlay.Visible = false
+		end
+
+		-- Show current overlay
+		if selectionOverlay[currentIndex] then
+			selectionOverlay[currentIndex].Visible = true
+		end
+
+		-- Move to next player
+		currentIndex = (currentIndex % #selectionOverlay) + 1
+	end
+
+	-- Find the hangman's index in the players list
+	local hangmanIndex = 1
+	for i, player in Players:GetPlayers() do
+		if player == hangman then
+			hangmanIndex = i
+			break
+		end
+	end
+
+	-- Start rapid switching animation
+	local switching = true
+	local startTime = os.clock()
+
+	-- Connect animation to RunService
+	local RunService = game:GetService("RunService")
+	local lastSwitchTime = 0
+
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		local currentTime = os.clock()
+		local elapsedTime = currentTime - startTime
+
+		-- Check if we should stop animation
+		if elapsedTime >= animationDuration then
+			switching = false
+			connection:Disconnect()
+
+			-- Show overlay on final selected player
+			for i, overlay in selectionOverlay do
+				overlay.Visible = (i == hangmanIndex)
+			end
+			return
+		end
+
+		-- Switch overlay position based on interval
+		if switching and (currentTime - lastSwitchTime) >= switchInterval then
+			moveOverlay()
+			lastSwitchTime = currentTime
+
+			-- Gradually slow down the switching
+			switchInterval = 0.1 + (elapsedTime / animationDuration * 0.2)
+		end
+	end)
+
+	-- Clean up when state ends
+	if state == "End" then
+		if connection then
+			connection:Disconnect()
+		end
+		-- Hide all overlays
+		for _, overlay in selectionOverlay do
+			overlay.Visible = false
 		end
 	end
 end)

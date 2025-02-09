@@ -115,6 +115,9 @@ Hangman.stateHandlers = {
 			self:startTimer(CONFIG.HANGMAN_TIME, function()
 				self.Events.HangmanSelectionEvent:FireAllClients("End")
 
+				-- Remove the hangman from the table self.players
+				-- Teleport the hangman and attach the ropes
+
 				self.word = self:RandomWord()
 				self.Events.TestEvent:FireAllClients(self.word)
 
@@ -518,9 +521,6 @@ end
 function Hangman:chooseHangman(players)
 	local weightTable = {}
 	local totalWeight = 0
-	-- Access the datastore
-	-- Get cumilative weight of all the players in the game
-	-- Randomly select the player with the highest change to be the Hangman
 
 	for _, player in players do
 		local stats = Stats.getPlayerStats(player)

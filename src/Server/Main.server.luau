@@ -19,6 +19,7 @@ createRemoteEvent("TestEvent")
 createRemoteEvent("TimerEvent")
 createRemoteEvent("PlayerAttemptsEvent")
 createRemoteEvent("CurrentPlayerEvent")
+createRemoteEvent("HangmanSelectionEvent")
 
 game.Players.PlayerAdded:Connect(function(player)
 	Stats.initializePlayer(player)

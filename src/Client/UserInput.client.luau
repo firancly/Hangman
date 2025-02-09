@@ -22,6 +22,7 @@ local Events = {
 	TimerEvent = ReplicatedStorage:WaitForChild("TimerEvent"),
 	PlayerAttempts = ReplicatedStorage:WaitForChild("PlayerAttemptsEvent"),
 	CurrentPlayer = ReplicatedStorage:WaitForChild("CurrentPlayerEvent"),
+	HangmanSelection = ReplicatedStorage:WaitForChild("HangmanSelectionEvent"),
 }
 
 local KeyboardRows = {
@@ -275,6 +276,40 @@ Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 	timerText.Text = time
 
 	timer.Visible = time > 0
+end)
+
+-- CHOOSE THE HANGMAN
+Events.HangmanSelection.OnClientEvent:Connect(function(state)
+	local poster = ScreenGui.HangmanSelection.Poster
+	local avatars = poster:GetChildren()
+	poster.Parent.Visible = true
+
+	if state == "End" then
+		-- Clear the ui
+		poster.Parent.Visible = false
+		return
+	end
+
+	-- Set player avatar photos
+	for i, player in Players:GetPlayers() do
+		local avatarFrame = avatars[i]
+		if avatarFrame and avatarFrame.ImageLabel:IsA("ImageLabel") then
+			local success, thumbnail = pcall(function()
+				return Players:GetUserThumbnailAsync(
+					player.UserId,
+					Enum.ThumbnailType.HeadShot,
+					Enum.ThumbnailSize.Size420x420
+				)
+			end)
+
+			if success then
+				avatarFrame.ImageLabel.Image = thumbnail
+				avatarFrame.Visible = true
+			else
+				warn("Failed to load thumbnail for player: " .. player.Name)
+			end
+		end
+	end
 end)
 
 -- TEST EVENT

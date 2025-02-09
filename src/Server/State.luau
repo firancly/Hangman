@@ -1,12 +1,15 @@
 local Hangman = {}
 Hangman.__index = Hangman
 
+local DataStoreService = game:GetService("DataStoreService")
+local LeadboardStore = DataStoreService:GetDataStore("HangmanLeaderboard")
 local Stats = require(script.Parent:WaitForChild("Stats"))
 
 -- Configuration
 local CONFIG = {
 	MAX_ATTEMPTS = 6,
 	INTERMISSION_TIME = 5,
+	HANGMAN_TIME = 10,
 	PLAYER_TURN_TIME = 10,
 	MIN_PLAYERS = 1,
 	MAX_PLAYERS = 8,
@@ -56,6 +59,7 @@ function Hangman.new()
 		TimerEvent = game.ReplicatedStorage:WaitForChild("TimerEvent"),
 		PlayerAttemptsEvent = game.ReplicatedStorage:WaitForChild("PlayerAttemptsEvent"),
 		CurrentPlayerEvent = game.ReplicatedStorage:WaitForChild("CurrentPlayerEvent"),
+		HangmanSelectionEvent = game.ReplicatedStorage:WaitForChild("HangmanSelectionEvent"),
 	}
 
 	game.Players.PlayerRemoving:Connect(function(player)
@@ -104,19 +108,26 @@ Hangman.stateHandlers = {
 		enter = function(self)
 			-- warn("Round start state entered")
 			-- Initialize round
-			self.word = self:RandomWord()
-			self.Events.TestEvent:FireAllClients(self.word)
 
-			-- Teleport players and update UI
-			self:teleportPlayers(self.players, self.state)
+			-- 10 seconds to choose the hangman with ui
+			self:chooseHangman(self.players)
+			self.Events.HangmanSelectionEvent:FireAllClients("Start")
+			self:startTimer(CONFIG.HANGMAN_TIME, function()
+				self.Events.HangmanSelectionEvent:FireAllClients("End")
 
-			for _, player in self.players do
-				self.Events.PlayerAttemptsEvent:FireClient(player, self.playerAttempts[player.UserId])
-				self.Events.WordLengthEvent:FireClient(player, self.word:len())
-			end
+				self.word = self:RandomWord()
+				self.Events.TestEvent:FireAllClients(self.word)
 
-			-- Move to player turn state
-			self:setState(gameStates.PLAYER_TURN)
+				-- Teleport players and update UI
+				self:teleportPlayers(self.players, self.state)
+
+				for _, player in self.players do
+					self.Events.PlayerAttemptsEvent:FireClient(player, self.playerAttempts[player.UserId])
+					self.Events.WordLengthEvent:FireClient(player, self.word:len())
+				end
+
+				self:setState(gameStates.PLAYER_TURN)
+			end)
 		end,
 	},
 
@@ -502,6 +513,45 @@ function Hangman:checkWinCondition()
 		end
 	end
 	return allLettersGuessed
+end
+
+function Hangman:chooseHangman(players)
+	local weightTable = {}
+	local totalWeight = 0
+	-- Access the datastore
+	--  Stats.initializePlayer(player)
+	-- Get cumilative weight of all the players in the game
+	-- Randomly select the player with the highest change to be the Hangman
+
+	for _, player in players do
+		local stats = Stats.getPlayerStats(player)
+		local weight = stats.totalChances
+		totalWeight += weight
+
+		table.insert(weightTable, {
+			player = player,
+			weight = weight,
+			cumilative = totalWeight,
+		})
+	end
+
+	for _, entry in weightTable do
+		entry.percentage = math.floor((entry.weight / totalWeight) * 100)
+		-- Fire event to display percentage under the player name
+	end
+
+	local randomValue = math.random() * totalWeight
+
+	for _, entry in weightTable do
+		if randomValue <= entry.cumilative then
+			print("Hangman is:", entry.player)
+			return entry.player
+		end
+	end
+
+	local randomPlayer = math.random(1, #players)
+	print("Fallback returning random player: " .. randomPlayer)
+	return players[randomPlayer]
 end
 
 Hangman.gameStates = gameStates

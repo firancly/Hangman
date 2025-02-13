@@ -541,12 +541,29 @@ function Hangman:chooseHangman(players)
 
 	local randomValue = math.random() * totalWeight
 
+	local function sanitizeWeightData(weightTable)
+		local clientData = {}
+		for _, entry in weightTable do
+			table.insert(clientData, {
+				player = entry.player,
+				percentage = entry.percentage,
+			})
+		end
+		return clientData
+	end
+
 	for _, entry in weightTable do
 		if randomValue <= entry.cumilative then
 			print("Hangman is:", entry.player)
 			local playerStats = Stats.getPlayerStats(entry.player)
 			playerStats.totalChances = 0
-			self.Events.HangmanSelectionEvent:FireAllClients("Start", randomValue, totalWeight, entry.player)
+			self.Events.HangmanSelectionEvent:FireAllClients(
+				"Start",
+				randomValue,
+				totalWeight,
+				entry.player,
+				sanitizeWeightData(weightTable)
+			)
 			return entry.player
 		end
 	end

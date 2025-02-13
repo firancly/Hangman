@@ -278,7 +278,21 @@ local function getOrderedPlayerList()
 	return playerList
 end
 
-Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, totalWeight, hangman)
+local function updatePlayerPercentages(avatarFrames, clientData)
+	for _, data in clientData do
+		for i, frame in avatarFrames do
+			if frame:FindFirstChild("NameLabel") then
+				local player = Players:GetPlayerByUserId(data.player.UserId)
+				if player then
+					frame.NameLabel.Text = string.format("%d%%", data.percentage)
+				end
+			end
+		end
+	end
+end
+
+-- Used for mass hangman ui effects
+Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, totalWeight, hangman, clientData)
 	local poster = ScreenGui.HangmanSelection.Poster
 	local avatars = poster:GetChildren()
 	poster.Parent.Visible = true
@@ -306,11 +320,14 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 			if success then
 				avatarFrame.ImageLabel.Image = thumbnail
 				avatarFrame.Visible = true
-				avatarFrame.NameLabel.Text = player.Name
 			else
 				warn("Failed to load thumbnail for player: " .. player.Name)
 			end
 		end
+	end
+
+	if clientData then
+		updatePlayerPercentages(avatars, clientData)
 	end
 
 	-- Adjust the progress bar according to the random value

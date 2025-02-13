@@ -292,12 +292,12 @@ local function updatePlayerPercentages(avatarFrames, clientData)
 end
 
 -- Used for mass hangman ui effects
-Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, totalWeight, hangman, clientData)
+Events.HangmanSelection.OnClientEvent:Connect(function(data)
 	local poster = ScreenGui.HangmanSelection.Poster
 	local avatars = poster:GetChildren()
 	poster.Parent.Visible = true
 
-	if state == "End" then
+	if data.state == "End" then
 		-- Clear the ui
 		poster.Parent.Visible = false
 		return
@@ -326,15 +326,15 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 		end
 	end
 
-	if clientData then
-		updatePlayerPercentages(avatars, clientData)
+	if data.clientData then
+		updatePlayerPercentages(avatars, data.clientData)
 	end
 
 	-- Adjust the progress bar according to the random value
 	local progressContainer = poster.Parent.PercentageSelection.ProgressBar
 	local progressBar = progressContainer.Bar
 
-	local fillPercentage = randomValue / totalWeight
+	local fillPercentage = data.randomValue / data.totalWeight
 	print(fillPercentage)
 
 	local TweenService = game:GetService("TweenService")
@@ -374,7 +374,7 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 
 	-- Find the hangman's index in the players list
 	local hangmanIndex = 1
-	if not hangman then
+	if not data.hangman then
 		warn("Hangman is nil! Using default index 1")
 	else
 		-- print("Received hangman data:", {
@@ -384,7 +384,7 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 		-- }) -- debug print
 
 		for i, player in orderedPlayers do
-			if player.UserId == hangman.UserId then
+			if player.UserId == data.hangman.UserId then
 				print("Found hangman", player.Name, "at index", i)
 				hangmanIndex = i
 				break

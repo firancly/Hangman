@@ -113,7 +113,7 @@ Hangman.stateHandlers = {
 			self:chooseHangman(self.players)
 
 			self:startTimer(CONFIG.HANGMAN_TIME, function()
-				self.Events.HangmanSelectionEvent:FireAllClients("End")
+				self.Events.HangmanSelectionEvent:FireAllClients({ state = "End" })
 
 				-- Remove the hangman from the table self.players
 				-- Teleport the hangman and attach the ropes
@@ -557,13 +557,13 @@ function Hangman:chooseHangman(players)
 			print("Hangman is:", entry.player)
 			local playerStats = Stats.getPlayerStats(entry.player)
 			playerStats.totalChances = 0
-			self.Events.HangmanSelectionEvent:FireAllClients(
-				"Start",
-				randomValue,
-				totalWeight,
-				entry.player,
-				sanitizeWeightData(weightTable)
-			)
+			self.Events.HangmanSelectionEvent:FireAllClients({
+				state = "Start",
+				randomValue = randomValue,
+				totalWeight = totalWeight,
+				hangman = entry.player,
+				clientData = sanitizeWeightData(weightTable),
+			})
 			return entry.player
 		end
 	end

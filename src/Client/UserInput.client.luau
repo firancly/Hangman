@@ -270,6 +270,14 @@ Events.TimerEvent.OnClientEvent:Connect(function(time: number)
 end)
 
 -- CHOOSE THE HANGMAN
+local function getOrderedPlayerList()
+	local playerList = Players:GetPlayers()
+	table.sort(playerList, function(a, b)
+		return a.UserId < b.UserId
+	end)
+	return playerList
+end
+
 Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, totalWeight, hangman)
 	local poster = ScreenGui.HangmanSelection.Poster
 	local avatars = poster:GetChildren()
@@ -281,8 +289,10 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 		return
 	end
 
+	local orderedPlayers = getOrderedPlayerList()
+
 	-- Set player avatar photos
-	for i, player in Players:GetPlayers() do
+	for i, player in orderedPlayers do
 		local avatarFrame = avatars[i]
 		if avatarFrame and avatarFrame.ImageLabel:IsA("ImageLabel") then
 			local success, thumbnail = pcall(function()
@@ -296,6 +306,7 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 			if success then
 				avatarFrame.ImageLabel.Image = thumbnail
 				avatarFrame.Visible = true
+				avatarFrame.NameLabel.Text = player.Name
 			else
 				warn("Failed to load thumbnail for player: " .. player.Name)
 			end
@@ -346,10 +357,21 @@ Events.HangmanSelection.OnClientEvent:Connect(function(state, randomValue, total
 
 	-- Find the hangman's index in the players list
 	local hangmanIndex = 1
-	for i, player in Players:GetPlayers() do
-		if player == hangman then
-			hangmanIndex = i
-			break
+	if not hangman then
+		warn("Hangman is nil! Using default index 1")
+	else
+		-- print("Received hangman data:", {
+		-- 	Name = hangman.Name,
+		-- 	UserId = hangman.UserId,
+		-- 	ClassName = hangman.ClassName,
+		-- }) -- debug print
+
+		for i, player in orderedPlayers do
+			if player.UserId == hangman.UserId then
+				print("Found hangman", player.Name, "at index", i)
+				hangmanIndex = i
+				break
+			end
 		end
 	end
 

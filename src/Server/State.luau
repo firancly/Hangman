@@ -546,7 +546,7 @@ function Hangman:chooseHangman(players)
 			print("Hangman is:", entry.player)
 			local playerStats = Stats.getPlayerStats(entry.player)
 			playerStats.totalChances = 0
-			self.Events.HangmanSelectionEvent:FireAllClients("Start", randomValue, totalWeight, hangman)
+			self.Events.HangmanSelectionEvent:FireAllClients("Start", randomValue, totalWeight, entry.player)
 			return entry.player
 		end
 	end

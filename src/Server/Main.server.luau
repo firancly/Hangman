@@ -46,7 +46,7 @@ game.Players.PlayerAdded:Connect(function(player)
 
 	-- Wait for character to load and handle respawns
 	local function setupAttachments(character)
-		disableAnimations(character)
+		--disableAnimations(character)
 
 		-- Wait for all parts to load
 		local rightHand = character:WaitForChild("RightHand")
@@ -84,11 +84,11 @@ game.Players.PlayerAdded:Connect(function(player)
 end)
 
 -- Create game instance with states
--- local game = Hangman.new()
--- game:setState(Hangman.gameStates.INTERMISSION)
+local game = Hangman.new()
+game:setState(Hangman.gameStates.INTERMISSION)
 
--- RunService.Heartbeat:Connect(function()
--- 	if game then
--- 		game:update()
--- 	end
--- end)
+RunService.Heartbeat:Connect(function()
+	if game then
+		game:update()
+	end
+end)

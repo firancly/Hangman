@@ -3,6 +3,8 @@ Stats.__index = Stats
 
 local DataStoreService = game:GetService("DataStoreService")
 local LeadboardStore = DataStoreService:GetDataStore("HangmanLeaderboard")
+-- Creating one just for the leaderboard
+local LeaderboardOrderedStore = DataStoreService:GetOrderedDataStore("HangmanLeaderboard_Ordered")
 
 local playerStats = {
 	-- {wins = 0, lettersGuessed = 0, totalChances = 0}
@@ -79,6 +81,7 @@ function Stats.updatePlayerStats(player: Instance, letters: number, isWordGuess:
 
 	pcall(function()
 		LeadboardStore:SetAsync(player.UserId, stats)
+		LeaderboardOrderedStore:SetAsync(player.UserId, stats.wins)
 	end)
 
 	print(playerStats[player.UserId].totalChances .. "xp")
@@ -105,6 +108,36 @@ function Stats.getLeaderboard()
 	end)
 
 	return leadboardData
+end
+
+function Stats.getTopLeaderboard()
+	local success, data = pcall(function()
+		local pages = LeaderboardOrderedStore:GetSortedAsync(false, 100)
+		return pages:GetCurrentPage()
+	end)
+
+	if not success then
+		warn("Failed to get leaderboard data:", data)
+		return {}
+	end
+
+	local leaderboardData = {}
+
+	for _, entry in ipairs(data) do
+		-- Get full player stats from regular DataStore
+		local success, playerData = pcall(function()
+			return LeadboardStore:GetAsync(entry.key)
+		end)
+
+		if success and playerData then
+			table.insert(leaderboardData, {
+				userId = entry.key,
+				stats = playerData,
+			})
+		end
+	end
+
+	return leaderboardData
 end
 
 return Stats

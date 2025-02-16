@@ -377,12 +377,6 @@ Events.HangmanSelection.OnClientEvent:Connect(function(data)
 	if not data.hangman then
 		warn("Hangman is nil! Using default index 1")
 	else
-		-- print("Received hangman data:", {
-		-- 	Name = hangman.Name,
-		-- 	UserId = hangman.UserId,
-		-- 	ClassName = hangman.ClassName,
-		-- }) -- debug print
-
 		for i, player in orderedPlayers do
 			if player.UserId == data.hangman.UserId then
 				print("Found hangman", player.Name, "at index", i)
@@ -428,7 +422,7 @@ Events.HangmanSelection.OnClientEvent:Connect(function(data)
 	end)
 
 	-- Clean up when state ends
-	if state == "End" then
+	if data.state == "End" then
 		if connection then
 			connection:Disconnect()
 		end
